@@ -1,23 +1,5 @@
-import API_URL from './api';
-
-const obtenerToken = () => {
-    return localStorage.getItem('token');
-};
-
-const procesarRespuesta = async <T>(
-    response: Response
-): Promise<T> => {
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(
-            data.mensaje ||
-                'Ocurrió un error al procesar la solicitud'
-        );
-    }
-
-    return data;
-};
+import type { AxiosError, AxiosResponse } from 'axios';
+import apiClient from './apiClient';
 
 export interface CategoriaGasto {
     categoria_movimiento_id: number;
@@ -104,56 +86,57 @@ export interface RegistrarGastoResponse {
     gasto: GastoMantenimiento;
 }
 
+interface ErrorBackend {
+    mensaje?: string;
+    error?: string;
+}
+
+const obtenerMensajeError = (
+    error: unknown,
+    mensajeDefault: string
+): string => {
+    const axiosError = error as AxiosError<ErrorBackend>;
+
+    return (
+        axiosError.response?.data?.mensaje ||
+        axiosError.response?.data?.error ||
+        mensajeDefault
+    );
+};
+
+const manejarPeticion = async <T>(
+    peticion: Promise<AxiosResponse<T>>,
+    mensajeDefault = 'Ocurrió un error al procesar la solicitud'
+): Promise<T> => {
+    try {
+        const response = await peticion;
+        return response.data;
+    } catch (error) {
+        throw new Error(obtenerMensajeError(error, mensajeDefault));
+    }
+};
+
 export const obtenerDatosFormularioGasto =
     async (): Promise<FormularioGastoResponse> => {
-        const response = await fetch(
-            `${API_URL}/mantenimiento/formulario`,
-            {
-                method: 'GET',
-                headers: {
-                    Authorization: `Bearer ${obtenerToken()}`
-                }
-            }
-        );
-
-        return procesarRespuesta<FormularioGastoResponse>(
-            response
+        return manejarPeticion<FormularioGastoResponse>(
+            apiClient.get('/mantenimiento/formulario'),
+            'Error al obtener los datos del formulario de gasto.'
         );
     };
 
 export const listarGastosMantenimiento =
     async (): Promise<ListarGastosResponse> => {
-        const response = await fetch(
-            `${API_URL}/mantenimiento/gastos`,
-            {
-                method: 'GET',
-                headers: {
-                    Authorization: `Bearer ${obtenerToken()}`
-                }
-            }
-        );
-
-        return procesarRespuesta<ListarGastosResponse>(
-            response
+        return manejarPeticion<ListarGastosResponse>(
+            apiClient.get('/mantenimiento/gastos'),
+            'Error al listar los gastos de mantenimiento.'
         );
     };
 
 export const registrarGastoMantenimiento = async (
     form: RegistrarGastoForm
 ): Promise<RegistrarGastoResponse> => {
-    const response = await fetch(
-        `${API_URL}/mantenimiento/gastos`,
-        {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${obtenerToken()}`
-            },
-            body: JSON.stringify(form)
-        }
-    );
-
-    return procesarRespuesta<RegistrarGastoResponse>(
-        response
+    return manejarPeticion<RegistrarGastoResponse>(
+        apiClient.post('/mantenimiento/gastos', form),
+        'Error al registrar el gasto de mantenimiento.'
     );
 };

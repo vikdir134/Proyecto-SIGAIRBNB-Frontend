@@ -1,38 +1,5 @@
-import API_URL from './api';
-
-const obtenerToken = () => {
-    return localStorage.getItem('token');
-};
-
-const procesarRespuesta = async <T>(
-    response: Response
-): Promise<T> => {
-    const contentType = response.headers.get('content-type');
-
-    if (
-        contentType &&
-        contentType.includes('application/json')
-    ) {
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(
-                data.mensaje ||
-                    'Ocurrió un error al procesar la solicitud'
-            );
-        }
-
-        return data;
-    }
-
-    if (!response.ok) {
-        throw new Error(
-            'Ocurrió un error al procesar la solicitud'
-        );
-    }
-
-    return {} as T;
-};
+import type { AxiosError } from 'axios';
+import apiClient from './apiClient';
 
 export interface ReciboReserva {
     recibo_id: number;
@@ -56,7 +23,7 @@ export interface ReciboReserva {
     nombre_inmueble?: string;
     tipo_inmueble?: string;
     serie_empresa?: string;
-correlativo_empresa?: number;
+    correlativo_empresa?: number;
 }
 
 export interface ReciboDetalle {
@@ -98,6 +65,11 @@ export interface VistaPreviaRecibo {
     fecha_vencimiento: string;
 }
 
+interface ErrorBackend {
+    mensaje?: string;
+    error?: string;
+}
+
 interface PreviewReciboResponse extends VistaPreviaRecibo {
     mensaje: string;
 }
@@ -121,163 +93,179 @@ interface ObtenerDetalleReciboResponse {
     detalles: ReciboDetalle[];
 }
 
+const obtenerMensajeError = async (
+    error: unknown,
+    mensajeDefault: string
+): Promise<string> => {
+    const axiosError = error as AxiosError<ErrorBackend | Blob>;
+    const data = axiosError.response?.data;
+
+    if (data instanceof Blob) {
+        try {
+            const texto = await data.text();
+            const json = JSON.parse(texto) as ErrorBackend;
+
+            return json.mensaje || json.error || mensajeDefault;
+        } catch {
+            return mensajeDefault;
+        }
+    }
+
+    if (data && typeof data === 'object') {
+        return (
+            (data as ErrorBackend).mensaje ||
+            (data as ErrorBackend).error ||
+            mensajeDefault
+        );
+    }
+
+    return mensajeDefault;
+};
+
 export const previsualizarReciboReservaGestion = async (
     reservaId: number
 ): Promise<PreviewReciboResponse> => {
-    const response = await fetch(
-        `${API_URL}/recibos/reservas/${reservaId}/preview`,
-        {
-            method: 'GET',
-            headers: {
-                Authorization: `Bearer ${obtenerToken()}`
-            }
-        }
-    );
+    try {
+        const response = await apiClient.get<PreviewReciboResponse>(
+            `/recibos/reservas/${reservaId}/preview`
+        );
 
-    return procesarRespuesta<PreviewReciboResponse>(
-        response
-    );
+        return response.data;
+    } catch (error) {
+        throw new Error(
+            await obtenerMensajeError(
+                error,
+                'Ocurrió un error al procesar la solicitud'
+            )
+        );
+    }
 };
 
 export const verReciboPdf = async (
     reciboId: number
 ): Promise<void> => {
-    const response = await fetch(
-        `${API_URL}/recibos/${reciboId}/pdf?modo=ver`,
-        {
-            method: 'GET',
-            headers: {
-                Authorization: `Bearer ${obtenerToken()}`
+    try {
+        const response = await apiClient.get<Blob>(
+            `/recibos/${reciboId}/pdf?modo=ver`,
+            {
+                responseType: 'blob'
             }
-        }
-    );
+        );
 
-    if (!response.ok) {
-        let mensaje =
-            'No se pudo abrir la boleta digital';
+        const blob = response.data;
+        const url = window.URL.createObjectURL(blob);
 
-        try {
-            const data = await response.json();
-            mensaje = data.mensaje || mensaje;
-        } catch {
-            // No hacer nada
-        }
+        window.open(url, '_blank', 'noopener,noreferrer');
 
-        throw new Error(mensaje);
+        setTimeout(() => {
+            window.URL.revokeObjectURL(url);
+        }, 1000);
+    } catch (error) {
+        throw new Error(
+            await obtenerMensajeError(
+                error,
+                'No se pudo abrir la boleta digital'
+            )
+        );
     }
-
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-
-    window.open(url, '_blank', 'noopener,noreferrer');
-
-    setTimeout(() => {
-        window.URL.revokeObjectURL(url);
-    }, 1000);
 };
 
 export const generarReciboReservaGestion = async (
     reservaId: number,
     observaciones?: string
 ): Promise<GenerarReciboResponse> => {
-    const response = await fetch(
-        `${API_URL}/recibos/reservas/${reservaId}/generar`,
-        {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${obtenerToken()}`
-            },
-            body: JSON.stringify({
+    try {
+        const response = await apiClient.post<GenerarReciboResponse>(
+            `/recibos/reservas/${reservaId}/generar`,
+            {
                 observaciones:
                     observaciones ||
                     'Boleta digital emitida desde la gestión de reservas.'
-            })
-        }
-    );
+            }
+        );
 
-    return procesarRespuesta<GenerarReciboResponse>(
-        response
-    );
+        return response.data;
+    } catch (error) {
+        throw new Error(
+            await obtenerMensajeError(
+                error,
+                'Ocurrió un error al procesar la solicitud'
+            )
+        );
+    }
 };
 
 export const listarRecibosReserva = async (
     reservaId: number
 ): Promise<ListarRecibosReservaResponse> => {
-    const response = await fetch(
-        `${API_URL}/recibos/reservas/${reservaId}`,
-        {
-            method: 'GET',
-            headers: {
-                Authorization: `Bearer ${obtenerToken()}`
-            }
-        }
-    );
+    try {
+        const response = await apiClient.get<ListarRecibosReservaResponse>(
+            `/recibos/reservas/${reservaId}`
+        );
 
-    return procesarRespuesta<ListarRecibosReservaResponse>(
-        response
-    );
+        return response.data;
+    } catch (error) {
+        throw new Error(
+            await obtenerMensajeError(
+                error,
+                'Ocurrió un error al procesar la solicitud'
+            )
+        );
+    }
 };
 
 export const obtenerDetalleRecibo = async (
     reciboId: number
 ): Promise<ObtenerDetalleReciboResponse> => {
-    const response = await fetch(
-        `${API_URL}/recibos/${reciboId}`,
-        {
-            method: 'GET',
-            headers: {
-                Authorization: `Bearer ${obtenerToken()}`
-            }
-        }
-    );
+    try {
+        const response = await apiClient.get<ObtenerDetalleReciboResponse>(
+            `/recibos/${reciboId}`
+        );
 
-    return procesarRespuesta<ObtenerDetalleReciboResponse>(
-        response
-    );
+        return response.data;
+    } catch (error) {
+        throw new Error(
+            await obtenerMensajeError(
+                error,
+                'Ocurrió un error al procesar la solicitud'
+            )
+        );
+    }
 };
 
 export const descargarReciboPdf = async (
     reciboId: number
 ): Promise<void> => {
-    const response = await fetch(
-        `${API_URL}/recibos/${reciboId}/pdf`,
-        {
-            method: 'GET',
-            headers: {
-                Authorization: `Bearer ${obtenerToken()}`
+    try {
+        const response = await apiClient.get<Blob>(
+            `/recibos/${reciboId}/pdf`,
+            {
+                responseType: 'blob'
             }
-        }
-    );
+        );
 
-    if (!response.ok) {
-        let mensaje =
-            'No se pudo descargar la boleta digital';
+        const blob = response.data;
+        const url = window.URL.createObjectURL(blob);
 
-        try {
-            const data = await response.json();
-            mensaje = data.mensaje || mensaje;
-        } catch {
-            // No hacer nada si no viene JSON
-        }
+        const enlace = document.createElement('a');
+        enlace.href = url;
+        enlace.download = `boleta-digital-${String(
+            reciboId
+        ).padStart(6, '0')}.pdf`;
 
-        throw new Error(mensaje);
+        document.body.appendChild(enlace);
+        enlace.click();
+        enlace.remove();
+
+        window.URL.revokeObjectURL(url);
+    } catch (error) {
+        throw new Error(
+            await obtenerMensajeError(
+                error,
+                'No se pudo descargar la boleta digital'
+            )
+        );
     }
-
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-
-    const enlace = document.createElement('a');
-    enlace.href = url;
-    enlace.download = `boleta-digital-${String(
-        reciboId
-    ).padStart(6, '0')}.pdf`;
-
-    document.body.appendChild(enlace);
-    enlace.click();
-    enlace.remove();
-
-    window.URL.revokeObjectURL(url);
 };
 
 export const obtenerNumeroVisualRecibo = (

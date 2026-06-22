@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import API_URL from '../services/api';
+import type { AxiosError } from 'axios';
+import apiClient from '../services/apiClient';
 
 type PerfilUsuario = {
     nombres: string;
@@ -22,6 +23,29 @@ type Usuario = {
     perfil: PerfilUsuario;
 };
 
+interface ErrorBackend {
+    mensaje?: string;
+    error?: string;
+}
+
+interface AuthMeResponse {
+    mensaje?: string;
+    usuario: Usuario;
+}
+
+const obtenerMensajeError = (
+    error: unknown,
+    mensajeDefault: string
+): string => {
+    const axiosError = error as AxiosError<ErrorBackend>;
+
+    return (
+        axiosError.response?.data?.mensaje ||
+        axiosError.response?.data?.error ||
+        mensajeDefault
+    );
+};
+
 function Perfil() {
     const navigate = useNavigate();
 
@@ -38,24 +62,19 @@ function Perfil() {
         }
 
         try {
-            const response = await fetch(`${API_URL}/auth/me`, {
-                method: 'GET',
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            });
+            setCargando(true);
+            setError('');
 
-            const data = await response.json();
+            const response = await apiClient.get<AuthMeResponse>('/auth/me');
 
-            if (!response.ok) {
-                setError(data.mensaje || 'No se pudo obtener el perfil');
-                return;
-            }
-
-            setUsuario(data.usuario);
-
+            setUsuario(response.data.usuario);
         } catch (error) {
-            setError('No se pudo conectar con el servidor');
+            setError(
+                obtenerMensajeError(
+                    error,
+                    'No se pudo conectar con el servidor'
+                )
+            );
         } finally {
             setCargando(false);
         }
@@ -77,7 +96,9 @@ function Perfil() {
                 <header className="main-header">
                     <div className="logo-section">
                         <Link to="/">
-                            <span className="logo-text">Stay<span className="logo-dot-pe">.pe</span></span>
+                            <span className="logo-text">
+                                Stay<span className="logo-dot-pe">.pe</span>
+                            </span>
                         </Link>
                     </div>
 

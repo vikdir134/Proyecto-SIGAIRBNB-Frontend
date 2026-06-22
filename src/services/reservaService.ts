@@ -1,4 +1,5 @@
-import API_URL from './api';
+import type { AxiosError, AxiosResponse } from 'axios';
+import apiClient from './apiClient';
 
 export interface SolicitudReservaFormData {
     publicacion_id: number;
@@ -27,7 +28,7 @@ export interface SolicitudReserva {
     motivo_rechazo: string | null;
     fecha_decision: string | null;
 
-    //HU12
+    // HU12
     fecha_checkin?: string | null;
     fecha_checkout?: string | null;
     checkin_confirmado_por?: number | null;
@@ -208,72 +209,69 @@ export interface ResumenVettingGestionResponse {
     };
 }
 
-const obtenerHeaders = () => {
-    const token = localStorage.getItem('token');
+interface ErrorBackend {
+    mensaje?: string;
+    error?: string;
+}
 
-    return {
-        'Content-Type': 'application/json',
-        Authorization: token ? `Bearer ${token}` : ''
-    };
+const obtenerMensajeError = (
+    error: unknown,
+    mensajeDefault: string
+): string => {
+    const axiosError = error as AxiosError<ErrorBackend>;
+
+    return (
+        axiosError.response?.data?.mensaje ||
+        axiosError.response?.data?.error ||
+        mensajeDefault
+    );
 };
 
-const manejarRespuesta = async <T>(response: Response): Promise<T> => {
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.mensaje || 'Error en la solicitud');
+const manejarPeticion = async <T>(
+    peticion: Promise<AxiosResponse<T>>,
+    mensajeDefault = 'Error en la solicitud'
+): Promise<T> => {
+    try {
+        const response = await peticion;
+        return response.data;
+    } catch (error) {
+        throw new Error(obtenerMensajeError(error, mensajeDefault));
     }
-
-    return data;
 };
 
 export const solicitarReserva = async (
     data: SolicitudReservaFormData
 ): Promise<SolicitarReservaResponse> => {
-    const response = await fetch(`${API_URL}/reservas/solicitudes`, {
-        method: 'POST',
-        headers: obtenerHeaders(),
-        body: JSON.stringify(data)
-    });
-
-    return manejarRespuesta<SolicitarReservaResponse>(response);
+    return manejarPeticion<SolicitarReservaResponse>(
+        apiClient.post('/reservas/solicitudes', data)
+    );
 };
 
 export const listarMisSolicitudes = async (): Promise<MisSolicitudesResponse> => {
-    const response = await fetch(`${API_URL}/reservas/mis-solicitudes`, {
-        method: 'GET',
-        headers: obtenerHeaders()
-    });
-
-    return manejarRespuesta<MisSolicitudesResponse>(response);
+    return manejarPeticion<MisSolicitudesResponse>(
+        apiClient.get('/reservas/mis-solicitudes')
+    );
 };
 
 export const obtenerDetalleMiSolicitud = async (
     reservaId: number
 ): Promise<DetalleMiSolicitudResponse> => {
-    const response = await fetch(`${API_URL}/reservas/mis-solicitudes/${reservaId}`, {
-        method: 'GET',
-        headers: obtenerHeaders()
-    });
-
-    return manejarRespuesta<DetalleMiSolicitudResponse>(response);
+    return manejarPeticion<DetalleMiSolicitudResponse>(
+        apiClient.get(`/reservas/mis-solicitudes/${reservaId}`)
+    );
 };
 
-/*HU 13*/
+/* HU13 */
 export const solicitarExtensionReserva = async (
     reservaId: number,
     data: SolicitudExtensionFormData
 ): Promise<SolicitarExtensionReservaResponse> => {
-    const response = await fetch(
-        `${API_URL}/reservas/mis-solicitudes/${reservaId}/extensiones`,
-        {
-            method: 'POST',
-            headers: obtenerHeaders(),
-            body: JSON.stringify(data)
-        }
+    return manejarPeticion<SolicitarExtensionReservaResponse>(
+        apiClient.post(
+            `/reservas/mis-solicitudes/${reservaId}/extensiones`,
+            data
+        )
     );
-
-    return manejarRespuesta<SolicitarExtensionReservaResponse>(response);
 };
 
 export interface SolicitudReservaGestion extends SolicitudReserva {
@@ -352,74 +350,55 @@ export const listarSolicitudesGestion = async (
 
     const query = params.toString() ? `?${params.toString()}` : '';
 
-    const response = await fetch(`${API_URL}/reservas/gestion/solicitudes${query}`, {
-        method: 'GET',
-        headers: obtenerHeaders()
-    });
-
-    return manejarRespuesta<SolicitudesGestionResponse>(response);
+    return manejarPeticion<SolicitudesGestionResponse>(
+        apiClient.get(`/reservas/gestion/solicitudes${query}`)
+    );
 };
 
 export const aprobarSolicitudReservaGestion = async (
     reservaId: number,
     data: AprobarSolicitudData
 ): Promise<AprobarSolicitudResponse> => {
-    const response = await fetch(
-        `${API_URL}/reservas/gestion/solicitudes/${reservaId}/aprobar`,
-        {
-            method: 'PATCH',
-            headers: obtenerHeaders(),
-            body: JSON.stringify(data)
-        }
+    return manejarPeticion<AprobarSolicitudResponse>(
+        apiClient.patch(
+            `/reservas/gestion/solicitudes/${reservaId}/aprobar`,
+            data
+        )
     );
-
-    return manejarRespuesta<AprobarSolicitudResponse>(response);
 };
 
 export const rechazarSolicitudReservaGestion = async (
     reservaId: number,
     data: RechazarSolicitudData
 ): Promise<RechazarSolicitudResponse> => {
-    const response = await fetch(
-        `${API_URL}/reservas/gestion/solicitudes/${reservaId}/rechazar`,
-        {
-            method: 'PATCH',
-            headers: obtenerHeaders(),
-            body: JSON.stringify(data)
-        }
+    return manejarPeticion<RechazarSolicitudResponse>(
+        apiClient.patch(
+            `/reservas/gestion/solicitudes/${reservaId}/rechazar`,
+            data
+        )
     );
-
-    return manejarRespuesta<RechazarSolicitudResponse>(response);
 };
 
 export const confirmarCheckinReservaGestion = async (
     reservaId: number
 ): Promise<ControlOcupacionReservaResponse> => {
-    const response = await fetch(
-        `${API_URL}/reservas/gestion/solicitudes/${reservaId}/checkin`,
-        {
-            method: 'PATCH',
-            headers: obtenerHeaders(),
-            body: JSON.stringify({})
-        }
+    return manejarPeticion<ControlOcupacionReservaResponse>(
+        apiClient.patch(
+            `/reservas/gestion/solicitudes/${reservaId}/checkin`,
+            {}
+        )
     );
-
-    return manejarRespuesta<ControlOcupacionReservaResponse>(response);
 };
 
 export const confirmarCheckoutReservaGestion = async (
     reservaId: number
 ): Promise<ControlOcupacionReservaResponse> => {
-    const response = await fetch(
-        `${API_URL}/reservas/gestion/solicitudes/${reservaId}/checkout`,
-        {
-            method: 'PATCH',
-            headers: obtenerHeaders(),
-            body: JSON.stringify({})
-        }
+    return manejarPeticion<ControlOcupacionReservaResponse>(
+        apiClient.patch(
+            `/reservas/gestion/solicitudes/${reservaId}/checkout`,
+            {}
+        )
     );
-
-    return manejarRespuesta<ControlOcupacionReservaResponse>(response);
 };
 
 export interface SolicitudExtensionGestion {
@@ -470,15 +449,9 @@ export interface EventosGestionReservaResponse {
 export const obtenerEventosReservaGestion = async (
     reservaId: number
 ): Promise<EventosGestionReservaResponse> => {
-    const response = await fetch(
-        `${API_URL}/reservas/gestion/solicitudes/${reservaId}/eventos`,
-        {
-            method: 'GET',
-            headers: obtenerHeaders()
-        }
+    return manejarPeticion<EventosGestionReservaResponse>(
+        apiClient.get(`/reservas/gestion/solicitudes/${reservaId}/eventos`)
     );
-
-    return manejarRespuesta<EventosGestionReservaResponse>(response);
 };
 
 export interface GestionSolicitudExtensionResponse {
@@ -500,20 +473,14 @@ export const aprobarSolicitudExtensionGestion = async (
     solicitudExtensionId: number,
     comentarioDecision?: string
 ): Promise<GestionSolicitudExtensionResponse> => {
-    const response = await fetch(
-        `${API_URL}/reservas/gestion/extensiones/${solicitudExtensionId}/aprobar`,
-        {
-            method: 'PUT',
-            headers: obtenerHeaders(),
-            body: JSON.stringify({
+    return manejarPeticion<GestionSolicitudExtensionResponse>(
+        apiClient.put(
+            `/reservas/gestion/extensiones/${solicitudExtensionId}/aprobar`,
+            {
                 comentario_decision:
                     comentarioDecision?.trim() || null
-            })
-        }
-    );
-
-    return manejarRespuesta<GestionSolicitudExtensionResponse>(
-        response
+            }
+        )
     );
 };
 
@@ -521,20 +488,13 @@ export const rechazarSolicitudExtensionGestion = async (
     solicitudExtensionId: number,
     comentarioDecision: string
 ): Promise<GestionSolicitudExtensionResponse> => {
-    const response = await fetch(
-        `${API_URL}/reservas/gestion/extensiones/${solicitudExtensionId}/rechazar`,
-        {
-            method: 'PUT',
-            headers: obtenerHeaders(),
-            body: JSON.stringify({
-                comentario_decision:
-                    comentarioDecision.trim()
-            })
-        }
-    );
-
-    return manejarRespuesta<GestionSolicitudExtensionResponse>(
-        response
+    return manejarPeticion<GestionSolicitudExtensionResponse>(
+        apiClient.put(
+            `/reservas/gestion/extensiones/${solicitudExtensionId}/rechazar`,
+            {
+                comentario_decision: comentarioDecision.trim()
+            }
+        )
     );
 };
 
@@ -646,52 +606,34 @@ export interface VettingInquilinoResponse {
 export const obtenerVettingInquilinoGestion = async (
     reservaId: number
 ): Promise<VettingInquilinoResponse> => {
-    const response = await fetch(
-        `${API_URL}/reservas/gestion/solicitudes/${reservaId}/vetting`,
-        {
-            method: 'GET',
-            headers: obtenerHeaders()
-        }
+    return manejarPeticion<VettingInquilinoResponse>(
+        apiClient.get(`/reservas/gestion/solicitudes/${reservaId}/vetting`)
     );
-
-    return manejarRespuesta<VettingInquilinoResponse>(response);
 };
 
 export const registrarEvaluacionInquilinoGestion = async (
     reservaId: number,
     data: RegistrarEvaluacionInquilinoData
 ): Promise<RegistrarEvaluacionInquilinoResponse> => {
-    const response = await fetch(
-        `${API_URL}/reservas/gestion/solicitudes/${reservaId}/evaluacion`,
-        {
-            method: 'POST',
-            headers: obtenerHeaders(),
-            body: JSON.stringify(data)
-        }
+    return manejarPeticion<RegistrarEvaluacionInquilinoResponse>(
+        apiClient.post(
+            `/reservas/gestion/solicitudes/${reservaId}/evaluacion`,
+            data
+        )
     );
-
-    return manejarRespuesta<RegistrarEvaluacionInquilinoResponse>(response);
 };
 
 export const obtenerEvaluacionesInquilinoGestion = async (
     reservaId: number
 ): Promise<EvaluacionesInquilinoResponse> => {
-    const response = await fetch(
-        `${API_URL}/reservas/gestion/solicitudes/${reservaId}/evaluaciones`,
-        {
-            method: 'GET',
-            headers: obtenerHeaders()
-        }
+    return manejarPeticion<EvaluacionesInquilinoResponse>(
+        apiClient.get(`/reservas/gestion/solicitudes/${reservaId}/evaluaciones`)
     );
-
-    return manejarRespuesta<EvaluacionesInquilinoResponse>(response);
 };
 
-export const obtenerResumenVettingGestion = async (): Promise<ResumenVettingGestionResponse> => {
-    const response = await fetch(`${API_URL}/reservas/gestion/vetting/resumen`, {
-        method: 'GET',
-        headers: obtenerHeaders()
-    });
-
-    return manejarRespuesta<ResumenVettingGestionResponse>(response);
-};
+export const obtenerResumenVettingGestion =
+    async (): Promise<ResumenVettingGestionResponse> => {
+        return manejarPeticion<ResumenVettingGestionResponse>(
+            apiClient.get('/reservas/gestion/vetting/resumen')
+        );
+    };

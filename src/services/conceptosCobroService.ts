@@ -1,4 +1,5 @@
-import API_URL from './api';
+import type { AxiosError, AxiosResponse } from 'axios';
+import apiClient from './apiClient';
 
 export interface ConceptoCobro {
     concepto_cobro_id: number;
@@ -38,41 +39,62 @@ export interface ConceptoCobroForm {
     permite_pago_online: boolean;
 }
 
-const obtenerToken = () => {
-    return localStorage.getItem('token');
+interface ErrorBackend {
+    mensaje?: string;
+    error?: string;
+}
+
+interface ListarConceptosCobroResponse {
+    mensaje?: string;
+    conceptos: ConceptoCobro[];
+}
+
+interface ConceptoCobroResponse {
+    mensaje?: string;
+    concepto: ConceptoCobro;
+}
+
+const obtenerMensajeError = (
+    error: unknown,
+    mensajeDefault: string
+): string => {
+    const axiosError = error as AxiosError<ErrorBackend>;
+
+    return (
+        axiosError.response?.data?.mensaje ||
+        axiosError.response?.data?.error ||
+        mensajeDefault
+    );
+};
+
+const manejarPeticion = async <T>(
+    peticion: Promise<AxiosResponse<T>>,
+    mensajeDefault: string
+): Promise<T> => {
+    try {
+        const response = await peticion;
+        return response.data;
+    } catch (error) {
+        throw new Error(obtenerMensajeError(error, mensajeDefault));
+    }
 };
 
 export const listarConceptosCobro = async (): Promise<ConceptoCobro[]> => {
-    const response = await fetch(`${API_URL}/conceptos-cobro`, {
-        headers: {
-            Authorization: `Bearer ${obtenerToken()}`
-        }
-    });
+    const data = await manejarPeticion<ListarConceptosCobroResponse>(
+        apiClient.get('/conceptos-cobro'),
+        'Error al listar conceptos de cobro'
+    );
 
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.mensaje || 'Error al listar conceptos de cobro');
-    }
-
-    return data.conceptos;
+    return data.conceptos || [];
 };
 
-export const crearConceptoCobro = async (form: ConceptoCobroForm) => {
-    const response = await fetch(`${API_URL}/conceptos-cobro`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${obtenerToken()}`
-        },
-        body: JSON.stringify(form)
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.mensaje || 'Error al crear concepto de cobro');
-    }
+export const crearConceptoCobro = async (
+    form: ConceptoCobroForm
+): Promise<ConceptoCobro> => {
+    const data = await manejarPeticion<ConceptoCobroResponse>(
+        apiClient.post('/conceptos-cobro', form),
+        'Error al crear concepto de cobro'
+    );
 
     return data.concepto;
 };
@@ -80,21 +102,11 @@ export const crearConceptoCobro = async (form: ConceptoCobroForm) => {
 export const actualizarConceptoCobro = async (
     conceptoCobroId: number,
     form: ConceptoCobroForm
-) => {
-    const response = await fetch(`${API_URL}/conceptos-cobro/${conceptoCobroId}`, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${obtenerToken()}`
-        },
-        body: JSON.stringify(form)
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.mensaje || 'Error al actualizar concepto de cobro');
-    }
+): Promise<ConceptoCobro> => {
+    const data = await manejarPeticion<ConceptoCobroResponse>(
+        apiClient.put(`/conceptos-cobro/${conceptoCobroId}`, form),
+        'Error al actualizar concepto de cobro'
+    );
 
     return data.concepto;
 };
@@ -102,21 +114,13 @@ export const actualizarConceptoCobro = async (
 export const cambiarEstadoConceptoCobro = async (
     conceptoCobroId: number,
     activo: boolean
-) => {
-    const response = await fetch(`${API_URL}/conceptos-cobro/${conceptoCobroId}/estado`, {
-        method: 'PATCH',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${obtenerToken()}`
-        },
-        body: JSON.stringify({ activo })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.mensaje || 'Error al cambiar estado del concepto');
-    }
+): Promise<ConceptoCobro> => {
+    const data = await manejarPeticion<ConceptoCobroResponse>(
+        apiClient.patch(`/conceptos-cobro/${conceptoCobroId}/estado`, {
+            activo
+        }),
+        'Error al cambiar estado del concepto'
+    );
 
     return data.concepto;
 };

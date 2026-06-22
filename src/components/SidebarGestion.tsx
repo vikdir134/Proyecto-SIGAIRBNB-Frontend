@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import API_URL from '../services/api';
+import { obtenerPerfil } from '../services/perfilService';
 
 function SidebarGestion() {
     const navigate = useNavigate();
@@ -11,6 +11,26 @@ function SidebarGestion() {
     const [esSecretario, setEsSecretario] = useState(false);
     const [esCliente, setEsCliente] = useState(false);
 
+    const cargarRolesDesdeStorage = () => {
+        const usuarioGuardado = localStorage.getItem('usuario');
+
+        if (!usuarioGuardado) return;
+
+        try {
+            const usuario = JSON.parse(usuarioGuardado);
+
+            const roles: string[] = Array.isArray(usuario.roles)
+                ? usuario.roles
+                : [];
+
+            setEsCliente(roles.includes('CLIENTE'));
+            setEsSecretario(roles.includes('SECRETARIO'));
+            setEsAdmin(roles.includes('ADMIN'));
+        } catch (error) {
+            console.error('No se pudo leer el usuario del localStorage:', error);
+        }
+    };
+
     const cargarDatosUsuario = async () => {
         const token = localStorage.getItem('token');
 
@@ -18,47 +38,13 @@ function SidebarGestion() {
             return;
         }
 
-        /*
-            Primero leemos el usuario guardado después del login.
-            Ahí deberían venir los roles: CLIENTE, ADMIN, SECRETARIO, etc.
-        */
-        const usuarioGuardado = localStorage.getItem('usuario');
+        cargarRolesDesdeStorage();
 
-        if (usuarioGuardado) {
-            try {
-                const usuario = JSON.parse(usuarioGuardado);
-
-                const roles: string[] = Array.isArray(usuario.roles)
-                    ? usuario.roles
-                    : [];
-
-                setEsCliente(roles.includes('CLIENTE'));
-                setEsSecretario(roles.includes('SECRETARIO'));
-                setEsAdmin(roles.includes('ADMIN'));
-            } catch (error) {
-                console.error('No se pudo leer el usuario del localStorage:', error);
-            }
-        }
-
-        /*
-            Luego cargamos el perfil para mostrar nombre e iniciales.
-        */
         try {
-            const response = await fetch(`${API_URL}/perfil`, {
-                method: 'GET',
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            });
+            const perfil = await obtenerPerfil();
 
-            const data = await response.json();
-
-            if (!response.ok) {
-                return;
-            }
-
-            const nombres = data.perfil?.nombres || '';
-            const apellidos = data.perfil?.apellidos || '';
+            const nombres = perfil.nombres || '';
+            const apellidos = perfil.apellidos || '';
 
             const nombreCompleto = `${nombres} ${apellidos}`.trim();
 
@@ -72,7 +58,6 @@ function SidebarGestion() {
             const nuevasIniciales = `${inicialNombre}${inicialApellido}`.trim();
 
             setIniciales(nuevasIniciales || 'U');
-
         } catch (error) {
             console.error('No se pudo cargar el perfil en el sidebar:', error);
         }
@@ -103,7 +88,6 @@ function SidebarGestion() {
                         Volver al inicio
                     </NavLink>
 
-                    {/* Funciones del cliente */}
                     {esCliente && (
                         <>
                             <NavLink to="/Busqueda">
@@ -116,7 +100,6 @@ function SidebarGestion() {
                         </>
                     )}
 
-                    {/* Funciones del administrador */}
                     {esAdmin && (
                         <>
                             <NavLink to="/GestionHome">
@@ -165,7 +148,6 @@ function SidebarGestion() {
                         </>
                     )}
 
-                    {/* Funciones del secretario */}
                     {esSecretario && !esAdmin && (
                         <>
                             <NavLink to="/GestionSolicitudesReserva">

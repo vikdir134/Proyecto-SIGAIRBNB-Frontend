@@ -1,12 +1,31 @@
 import { useEffect, useState } from 'react';
+import type { AxiosError } from 'axios';
 import PublicHeader from '../components/PublicHeader';
 import {
     listarMisSolicitudes,
     type SolicitudReserva
 } from '../services/reservaService';
+import apiClient from '../services/apiClient';
 import DetalleSolicitudReservaDialog from '../components/DetalleSolicitudReservaDialog';
 import CancelarReservaDialog from '../components/CancelarReservaDialog';
-import API_URL from '../services/api';
+
+interface ErrorBackend {
+    mensaje?: string;
+    error?: string;
+}
+
+const obtenerMensajeError = (
+    error: unknown,
+    mensajeDefault: string
+): string => {
+    const axiosError = error as AxiosError<ErrorBackend>;
+
+    return (
+        axiosError.response?.data?.mensaje ||
+        axiosError.response?.data?.error ||
+        mensajeDefault
+    );
+};
 
 function MisSolicitudesReserva() {
     const [solicitudes, setSolicitudes] = useState<SolicitudReserva[]>([]);
@@ -14,84 +33,79 @@ function MisSolicitudesReserva() {
     const [error, setError] = useState('');
     const [detalleAbierto, setDetalleAbierto] = useState(false);
     const [reservaSeleccionadaId, setReservaSeleccionadaId] = useState<number | null>(null);
-   const [reservaSeleccionadaCancelar, setReservaSeleccionadaCancelar] = useState<any>(null);
+    const [reservaSeleccionadaCancelar, setReservaSeleccionadaCancelar] =
+        useState<SolicitudReserva | null>(null);
     const [cancelandoReserva, setCancelandoReserva] = useState(false);
     const [mensajeCancelacion, setMensajeCancelacion] = useState('');
     const [errorCancelacion, setErrorCancelacion] = useState('');
 
     const puedeCancelarReserva = (estado: string) => {
-    return ['SOLICITADA', 'APROBADA'].includes(estado);
-};
+        return ['SOLICITADA', 'APROBADA'].includes(estado);
+    };
 
-const abrirDialogCancelarReserva = (reserva: any) => {
-    setReservaSeleccionadaCancelar(reserva);
-    setMensajeCancelacion('');
-    setErrorCancelacion('');
-};
-
-const cerrarDialogCancelarReserva = () => {
-    if (cancelandoReserva) return;
-
-    setReservaSeleccionadaCancelar(null);
-};
-
-const confirmarCancelacionReserva = async (motivo: string) => {
-    if (!reservaSeleccionadaCancelar) return;
-
-    const token = localStorage.getItem('token');
-
-    if (!token) {
-        setErrorCancelacion('Tu sesión ha expirado. Inicia sesión nuevamente.');
-        return;
-    }
-
-    try {
-        setCancelandoReserva(true);
+    const abrirDialogCancelarReserva = (reserva: SolicitudReserva) => {
+        setReservaSeleccionadaCancelar(reserva);
         setMensajeCancelacion('');
         setErrorCancelacion('');
+    };
 
-        const response = await fetch(
-            `${API_URL}/reservas/${reservaSeleccionadaCancelar.reserva_id}/cancelar`,
-            {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    motivo: motivo || 'Cancelación realizada por el inquilino'
-                })
-            }
-        );
+    const cerrarDialogCancelarReserva = () => {
+        if (cancelandoReserva) return;
 
-        const data = await response.json();
+        setReservaSeleccionadaCancelar(null);
+    };
 
-        if (!response.ok) {
-            setErrorCancelacion(data.mensaje || 'No se pudo cancelar la reserva');
+    const confirmarCancelacionReserva = async (motivo: string) => {
+        if (!reservaSeleccionadaCancelar) return;
+
+        const token = localStorage.getItem('token');
+
+        if (!token) {
+            setErrorCancelacion('Tu sesión ha expirado. Inicia sesión nuevamente.');
             return;
         }
 
-        setMensajeCancelacion('Reserva cancelada correctamente. El anfitrión fue notificado.');
+        try {
+            setCancelandoReserva(true);
+            setMensajeCancelacion('');
+            setErrorCancelacion('');
 
-        setSolicitudes((prev: any[]) =>
-    prev.map((reserva) =>
-        reserva.reserva_id === reservaSeleccionadaCancelar.reserva_id
-            ? {
-                ...reserva,
-                estado_reserva: 'CANCELADA'
-            }
-            : reserva
-    )
-);
+            await apiClient.patch(
+                `/reservas/${reservaSeleccionadaCancelar.reserva_id}/cancelar`,
+                {
+                    motivo: motivo || 'Cancelación realizada por el inquilino'
+                }
+            );
 
-        setReservaSeleccionadaCancelar(null);
-    } catch (error) {
-        console.error('Error al cancelar reserva:', error);
-        setErrorCancelacion('Error al conectar con el servidor');
-    } finally {
-        setCancelandoReserva(false);
-    }
-};
+            setMensajeCancelacion(
+                'Reserva cancelada correctamente. El anfitrión fue notificado.'
+            );
+
+            setSolicitudes((prev) =>
+                prev.map((reserva) =>
+                    reserva.reserva_id === reservaSeleccionadaCancelar.reserva_id
+                        ? {
+                              ...reserva,
+                              estado_reserva: 'CANCELADA'
+                          }
+                        : reserva
+                )
+            );
+
+            setReservaSeleccionadaCancelar(null);
+        } catch (error) {
+            console.error('Error al cancelar reserva:', error);
+
+            setErrorCancelacion(
+                obtenerMensajeError(
+                    error,
+                    'No se pudo cancelar la reserva'
+                )
+            );
+        } finally {
+            setCancelandoReserva(false);
+        }
+    };
 
     const cargarSolicitudes = async () => {
         try {
@@ -321,7 +335,6 @@ const confirmarCancelacionReserva = async (motivo: string) => {
                                         )}
                                     </div>
                                 </div>
-
                             </article>
                         ))}
                     </section>

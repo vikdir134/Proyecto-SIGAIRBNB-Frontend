@@ -1,4 +1,5 @@
-import API_URL from './api';
+import type { AxiosError, AxiosResponse } from 'axios';
+import apiClient from './apiClient';
 
 export type EdificioFormData = {
     codigo: string;
@@ -170,254 +171,142 @@ export interface ActualizarInmuebleData {
     es_publicable: boolean;
 }
 
-const obtenerToken = () => {
-    const token = localStorage.getItem('token');
+interface ErrorBackend {
+    mensaje?: string;
+    error?: string;
+}
 
-    if (!token) {
-        throw new Error('No hay sesión activa. Inicia sesión nuevamente.');
+const obtenerMensajeError = (
+    error: unknown,
+    mensajeDefault: string
+): string => {
+    const axiosError = error as AxiosError<ErrorBackend>;
+
+    return (
+        axiosError.response?.data?.mensaje ||
+        axiosError.response?.data?.error ||
+        mensajeDefault
+    );
+};
+
+const manejarPeticion = async <T>(
+    peticion: Promise<AxiosResponse<T>>,
+    mensajeDefault: string
+): Promise<T> => {
+    try {
+        const response = await peticion;
+        return response.data;
+    } catch (error) {
+        throw new Error(obtenerMensajeError(error, mensajeDefault));
     }
-
-    return token;
 };
 
 export const registrarEdificio = async (formData: EdificioFormData) => {
-    const token = obtenerToken();
-
-    const response = await fetch(`${API_URL}/edificios`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(formData)
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.mensaje || 'Error al registrar edificio');
-    }
-
-    return data;
+    return manejarPeticion(
+        apiClient.post('/edificios', formData),
+        'Error al registrar edificio'
+    );
 };
 
 export const listarEdificios = async () => {
-    const token = obtenerToken();
-
-    const response = await fetch(`${API_URL}/edificios`, {
-        method: 'GET',
-        headers: {
-            Authorization: `Bearer ${token}`
-        }
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.mensaje || 'Error al listar edificios');
-    }
-
-    return data;
+    return manejarPeticion(
+        apiClient.get('/edificios'),
+        'Error al listar edificios'
+    );
 };
 
 export const registrarUnidad = async (formData: UnidadFormData) => {
-    const token = obtenerToken();
-
-    const response = await fetch(`${API_URL}/edificios/unidades`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(formData)
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.mensaje || 'Error al registrar piso/local');
-    }
-
-    return data;
+    return manejarPeticion(
+        apiClient.post('/edificios/unidades', formData),
+        'Error al registrar piso/local'
+    );
 };
 
-export const listarUnidadesPorEdificio = async (edificioId: number | string) => {
-    const token = obtenerToken();
-
-    const response = await fetch(`${API_URL}/edificios/${edificioId}/unidades`, {
-        method: 'GET',
-        headers: {
-            Authorization: `Bearer ${token}`
-        }
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.mensaje || 'Error al listar pisos/locales');
-    }
-
-    return data;
+export const listarUnidadesPorEdificio = async (
+    edificioId: number | string
+) => {
+    return manejarPeticion(
+        apiClient.get(`/edificios/${edificioId}/unidades`),
+        'Error al listar pisos/locales'
+    );
 };
 
-export const obtenerUnidadPorId = async (unidadId: number | string) => {
-    const token = obtenerToken();
-
-    const response = await fetch(`${API_URL}/edificios/unidades/${unidadId}`, {
-        method: 'GET',
-        headers: {
-            Authorization: `Bearer ${token}`
-        }
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.mensaje || 'Error al obtener piso/local');
-    }
-
-    return data;
+export const obtenerUnidadPorId = async (
+    unidadId: number | string
+) => {
+    return manejarPeticion(
+        apiClient.get(`/edificios/unidades/${unidadId}`),
+        'Error al obtener piso/local'
+    );
 };
 
 export const listarInmueblesMantenimiento = async () => {
-    const token = obtenerToken();
-
-    const response = await fetch(`${API_URL}/edificios/mantenimiento/inmuebles`, {
-        method: 'GET',
-        headers: {
-            Authorization: `Bearer ${token}`
-        }
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.mensaje || 'Error al listar inmuebles para mantenimiento');
-    }
-
-    return data;
+    return manejarPeticion(
+        apiClient.get('/edificios/mantenimiento/inmuebles'),
+        'Error al listar inmuebles para mantenimiento'
+    );
 };
 
-export const obtenerInmuebleMantenimientoPorId = async (inmuebleId: number | string) => {
-    const token = obtenerToken();
-
-    const response = await fetch(`${API_URL}/edificios/mantenimiento/inmuebles/${inmuebleId}`, {
-        method: 'GET',
-        headers: {
-            Authorization: `Bearer ${token}`
-        }
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.mensaje || 'Error al obtener inmueble');
-    }
-
-    return data;
+export const obtenerInmuebleMantenimientoPorId = async (
+    inmuebleId: number | string
+) => {
+    return manejarPeticion(
+        apiClient.get(`/edificios/mantenimiento/inmuebles/${inmuebleId}`),
+        'Error al obtener inmueble'
+    );
 };
 
 export const actualizarInmuebleMantenimiento = async (
     inmuebleId: number | string,
     formData: ActualizarInmuebleData
 ) => {
-    const token = obtenerToken();
-
-    const response = await fetch(`${API_URL}/edificios/mantenimiento/inmuebles/${inmuebleId}`, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(formData)
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.mensaje || 'Error al actualizar inmueble');
-    }
-
-    return data;
+    return manejarPeticion(
+        apiClient.put(
+            `/edificios/mantenimiento/inmuebles/${inmuebleId}`,
+            formData
+        ),
+        'Error al actualizar inmueble'
+    );
 };
 
-export const darBajaInmueble = async (inmuebleId: number | string) => {
-    const token = obtenerToken();
-
-    const response = await fetch(`${API_URL}/edificios/mantenimiento/inmuebles/${inmuebleId}/baja`, {
-        method: 'PATCH',
-        headers: {
-            Authorization: `Bearer ${token}`
-        }
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.mensaje || 'Error al dar de baja inmueble');
-    }
-
-    return data;
+export const darBajaInmueble = async (
+    inmuebleId: number | string
+) => {
+    return manejarPeticion(
+        apiClient.patch(
+            `/edificios/mantenimiento/inmuebles/${inmuebleId}/baja`
+        ),
+        'Error al dar de baja inmueble'
+    );
 };
 
 export const listarCatalogoCaracteristicas = async () => {
-    const token = obtenerToken();
-
-    const response = await fetch(`${API_URL}/edificios/mantenimiento/caracteristicas`, {
-        method: 'GET',
-        headers: {
-            Authorization: `Bearer ${token}`
-        }
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.mensaje || 'Error al listar características');
-    }
-
-    return data;
+    return manejarPeticion(
+        apiClient.get('/edificios/mantenimiento/caracteristicas'),
+        'Error al listar características'
+    );
 };
 
-export const obtenerCaracteristicasInmueble = async (inmuebleId: number | string) => {
-    const token = obtenerToken();
-
-    const response = await fetch(`${API_URL}/edificios/mantenimiento/inmuebles/${inmuebleId}/caracteristicas`, {
-        method: 'GET',
-        headers: {
-            Authorization: `Bearer ${token}`
-        }
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.mensaje || 'Error al obtener características del inmueble');
-    }
-
-    return data;
+export const obtenerCaracteristicasInmueble = async (
+    inmuebleId: number | string
+) => {
+    return manejarPeticion(
+        apiClient.get(
+            `/edificios/mantenimiento/inmuebles/${inmuebleId}/caracteristicas`
+        ),
+        'Error al obtener características del inmueble'
+    );
 };
 
 export const actualizarCaracteristicasInmueble = async (
     inmuebleId: number | string,
     caracteristicas: CaracteristicaInmueble[]
 ) => {
-    const token = obtenerToken();
-
-    const response = await fetch(`${API_URL}/edificios/mantenimiento/inmuebles/${inmuebleId}/caracteristicas`, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ caracteristicas })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.mensaje || 'Error al actualizar características');
-    }
-
-    return data;
+    return manejarPeticion(
+        apiClient.put(
+            `/edificios/mantenimiento/inmuebles/${inmuebleId}/caracteristicas`,
+            { caracteristicas }
+        ),
+        'Error al actualizar características'
+    );
 };

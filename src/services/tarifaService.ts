@@ -1,3 +1,6 @@
+import type { AxiosError, AxiosResponse } from 'axios';
+import apiClient from './apiClient';
+
 import type {
   AplicarIPCData,
   AplicarIPCResponse,
@@ -10,92 +13,82 @@ import type {
   RegistrarIPCData
 } from '../types/tarifa.types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+interface ErrorBackend {
+  mensaje?: string;
+  error?: string;
+}
 
-const obtenerToken = (): string | null => {
-  return localStorage.getItem('token');
+const obtenerMensajeError = (
+  error: unknown,
+  mensajeDefault: string
+): string => {
+  const axiosError = error as AxiosError<ErrorBackend>;
+
+  return (
+    axiosError.response?.data?.mensaje ||
+    axiosError.response?.data?.error ||
+    mensajeDefault
+  );
 };
 
-const getHeaders = (): HeadersInit => {
-  const token = obtenerToken();
-
-  return {
-    'Content-Type': 'application/json',
-    Authorization: token ? `Bearer ${token}` : ''
-  };
-};
-
-const manejarRespuesta = async <T>(response: Response): Promise<T> => {
-  const data = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    throw new Error(data.mensaje || 'Ocurrió un error en la solicitud.');
+const manejarPeticion = async <T>(
+  peticion: Promise<AxiosResponse<T>>,
+  mensajeDefault = 'Ocurrió un error en la solicitud.'
+): Promise<T> => {
+  try {
+    const response = await peticion;
+    return response.data;
+  } catch (error) {
+    throw new Error(obtenerMensajeError(error, mensajeDefault));
   }
-
-  return data as T;
 };
 
 export const registrarIPC = async (
   data: RegistrarIPCData
 ): Promise<IPCRegistroResponse> => {
-  const response = await fetch(`${API_URL}/tarifas/ipc`, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify(data)
-  });
-
-  return manejarRespuesta<IPCRegistroResponse>(response);
+  return manejarPeticion<IPCRegistroResponse>(
+    apiClient.post('/tarifas/ipc', data),
+    'Error al registrar el IPC.'
+  );
 };
 
 export const listarIPC = async (): Promise<IPCResponse> => {
-  const response = await fetch(`${API_URL}/tarifas/ipc`, {
-    method: 'GET',
-    headers: getHeaders()
-  });
-
-  return manejarRespuesta<IPCResponse>(response);
+  return manejarPeticion<IPCResponse>(
+    apiClient.get('/tarifas/ipc'),
+    'Error al listar los registros IPC.'
+  );
 };
 
 export const listarInmueblesConRenta = async (): Promise<InmueblesTarifaResponse> => {
-  const response = await fetch(`${API_URL}/tarifas/inmuebles`, {
-    method: 'GET',
-    headers: getHeaders()
-  });
-
-  return manejarRespuesta<InmueblesTarifaResponse>(response);
+  return manejarPeticion<InmueblesTarifaResponse>(
+    apiClient.get('/tarifas/inmuebles'),
+    'Error al listar los inmuebles con renta.'
+  );
 };
 
 export const previsualizarAplicacionIPC = async (
   data: PrevisualizarIPCData
 ): Promise<PrevisualizarIPCResponse> => {
-  const response = await fetch(`${API_URL}/tarifas/previsualizar-ipc`, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify(data)
-  });
-
-  return manejarRespuesta<PrevisualizarIPCResponse>(response);
+  return manejarPeticion<PrevisualizarIPCResponse>(
+    apiClient.post('/tarifas/previsualizar-ipc', data),
+    'Error al previsualizar la aplicación del IPC.'
+  );
 };
 
 export const aplicarIPC = async (
   data: AplicarIPCData
 ): Promise<AplicarIPCResponse> => {
-  const response = await fetch(`${API_URL}/tarifas/aplicar-ipc`, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify(data)
-  });
-
-  return manejarRespuesta<AplicarIPCResponse>(response);
+  return manejarPeticion<AplicarIPCResponse>(
+    apiClient.post('/tarifas/aplicar-ipc', data),
+    'Error al aplicar el IPC.'
+  );
 };
 
 export const listarHistorialTarifas = async (
   inmuebleId: number
 ): Promise<HistorialTarifasResponse> => {
-  const response = await fetch(`${API_URL}/tarifas/inmueble/${inmuebleId}/historial`, {
-    method: 'GET',
-    headers: getHeaders()
-  });
-
-  return manejarRespuesta<HistorialTarifasResponse>(response);
+  return manejarPeticion<HistorialTarifasResponse>(
+    apiClient.get(`/tarifas/inmueble/${inmuebleId}/historial`),
+    'Error al listar el historial de tarifas.'
+  );
 };

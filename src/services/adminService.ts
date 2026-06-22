@@ -1,4 +1,5 @@
-import API_URL from './api';
+import type { AxiosError, AxiosResponse } from 'axios';
+import apiClient from './apiClient';
 
 export type UsuarioAdmin = {
     usuario_id: number;
@@ -19,69 +20,81 @@ export type UsuarioAdmin = {
     roles?: string | null;
 };
 
-const obtenerToken = () => {
+interface ErrorBackend {
+    mensaje?: string;
+    error?: string;
+}
+
+interface ListarUsuariosAdminResponse {
+    mensaje?: string;
+    usuarios: UsuarioAdmin[];
+}
+
+interface UsuarioAdminResponse {
+    mensaje: string;
+    usuario?: UsuarioAdmin;
+}
+
+const validarSesion = () => {
     const token = localStorage.getItem('token');
 
     if (!token) {
         throw new Error('No hay sesión activa. Inicia sesión nuevamente.');
     }
-
-    return token;
 };
 
-export const listarUsuariosAdmin = async () => {
-    const token = obtenerToken();
+const obtenerMensajeError = (
+    error: unknown,
+    mensajeDefault: string
+): string => {
+    const axiosError = error as AxiosError<ErrorBackend>;
 
-    const response = await fetch(`${API_URL}/admin/usuarios`, {
-        method: 'GET',
-        headers: {
-            Authorization: `Bearer ${token}`
-        }
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.mensaje || 'Error al listar usuarios');
-    }
-
-    return data;
+    return (
+        axiosError.response?.data?.mensaje ||
+        axiosError.response?.data?.error ||
+        mensajeDefault
+    );
 };
 
-export const inactivarUsuarioAdmin = async (usuarioId: number | string) => {
-    const token = obtenerToken();
-
-    const response = await fetch(`${API_URL}/admin/usuarios/${usuarioId}/inactivar`, {
-        method: 'PATCH',
-        headers: {
-            Authorization: `Bearer ${token}`
-        }
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.mensaje || 'Error al inactivar usuario');
+const manejarPeticion = async <T>(
+    peticion: Promise<AxiosResponse<T>>,
+    mensajeDefault: string
+): Promise<T> => {
+    try {
+        const response = await peticion;
+        return response.data;
+    } catch (error) {
+        throw new Error(obtenerMensajeError(error, mensajeDefault));
     }
-
-    return data;
 };
 
-export const reactivarUsuarioAdmin = async (usuarioId: number | string) => {
-    const token = obtenerToken();
+export const listarUsuariosAdmin = async (): Promise<ListarUsuariosAdminResponse> => {
+    validarSesion();
 
-    const response = await fetch(`${API_URL}/admin/usuarios/${usuarioId}/reactivar`, {
-        method: 'PATCH',
-        headers: {
-            Authorization: `Bearer ${token}`
-        }
-    });
+    return manejarPeticion<ListarUsuariosAdminResponse>(
+        apiClient.get('/admin/usuarios'),
+        'Error al listar usuarios'
+    );
+};
 
-    const data = await response.json();
+export const inactivarUsuarioAdmin = async (
+    usuarioId: number | string
+): Promise<UsuarioAdminResponse> => {
+    validarSesion();
 
-    if (!response.ok) {
-        throw new Error(data.mensaje || 'Error al reactivar usuario');
-    }
+    return manejarPeticion<UsuarioAdminResponse>(
+        apiClient.patch(`/admin/usuarios/${usuarioId}/inactivar`),
+        'Error al inactivar usuario'
+    );
+};
 
-    return data;
+export const reactivarUsuarioAdmin = async (
+    usuarioId: number | string
+): Promise<UsuarioAdminResponse> => {
+    validarSesion();
+
+    return manejarPeticion<UsuarioAdminResponse>(
+        apiClient.patch(`/admin/usuarios/${usuarioId}/reactivar`),
+        'Error al reactivar usuario'
+    );
 };

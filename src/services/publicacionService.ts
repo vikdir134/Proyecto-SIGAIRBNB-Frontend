@@ -1,4 +1,5 @@
-import API_URL from './api';
+import type { AxiosError, AxiosResponse } from 'axios';
+import apiClient from './apiClient';
 
 /* ================================
    HU07 - TIPOS PARA BÚSQUEDA PÚBLICA
@@ -133,53 +134,50 @@ export interface PublicacionFormData {
     es_destacado: boolean;
 }
 
-/* ================================
-   HELPERS
-================================ */
+interface ErrorBackend {
+    mensaje?: string;
+    error?: string;
+}
 
-const obtenerToken = () => {
-    return localStorage.getItem('token');
+const obtenerMensajeError = (
+    error: unknown,
+    mensajeDefault: string
+): string => {
+    const axiosError = error as AxiosError<ErrorBackend>;
+
+    return (
+        axiosError.response?.data?.mensaje ||
+        axiosError.response?.data?.error ||
+        mensajeDefault
+    );
 };
 
-const construirHeadersJson = () => {
-    const token = obtenerToken();
-
-    return {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-    };
+const manejarPeticion = async <T>(
+    peticion: Promise<AxiosResponse<T>>,
+    mensajeDefault = 'Ocurrió un error en la solicitud'
+): Promise<T> => {
+    try {
+        const response = await peticion;
+        return response.data;
+    } catch (error) {
+        throw new Error(obtenerMensajeError(error, mensajeDefault));
+    }
 };
 
-const construirHeadersAuth = () => {
-    const token = obtenerToken();
-
-    return {
-        Authorization: `Bearer ${token}`
-    };
-};
-
-const construirQueryParams = (filtros: FiltrosPublicacion) => {
-    const params = new URLSearchParams();
+const limpiarFiltros = (filtros: FiltrosPublicacion) => {
+    const params: Record<string, string> = {};
 
     Object.entries(filtros).forEach(([clave, valor]) => {
-        if (valor !== undefined && valor !== null && String(valor).trim() !== '') {
-            params.append(clave, String(valor).trim());
+        if (
+            valor !== undefined &&
+            valor !== null &&
+            String(valor).trim() !== ''
+        ) {
+            params[clave] = String(valor).trim();
         }
     });
 
-    const queryString = params.toString();
-
-    return queryString ? `?${queryString}` : '';
-};
-
-const manejarRespuesta = async (response: Response) => {
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.mensaje || 'Ocurrió un error en la solicitud');
-    }
-
-    return data;
+    return params;
 };
 
 /* ================================
@@ -189,21 +187,21 @@ const manejarRespuesta = async (response: Response) => {
 export const listarPublicaciones = async (
     filtros: FiltrosPublicacion = {}
 ) => {
-    const queryParams = construirQueryParams(filtros);
-
-    const response = await fetch(`${API_URL}/publicaciones${queryParams}`, {
-        method: 'GET'
-    });
-
-    return manejarRespuesta(response);
+    return manejarPeticion(
+        apiClient.get('/publicaciones', {
+            params: limpiarFiltros(filtros)
+        }),
+        'Error al listar publicaciones'
+    );
 };
 
-export const obtenerDetallePublicacion = async (publicacionId: number) => {
-    const response = await fetch(`${API_URL}/publicaciones/${publicacionId}`, {
-        method: 'GET'
-    });
-
-    return manejarRespuesta(response);
+export const obtenerDetallePublicacion = async (
+    publicacionId: number
+) => {
+    return manejarPeticion(
+        apiClient.get(`/publicaciones/${publicacionId}`),
+        'Error al obtener detalle de publicación'
+    );
 };
 
 /* ================================
@@ -211,31 +209,25 @@ export const obtenerDetallePublicacion = async (publicacionId: number) => {
 ================================ */
 
 export const listarInmueblesPublicables = async () => {
-    const response = await fetch(
-        `${API_URL}/publicaciones/gestion/inmuebles-publicables`,
-        {
-            method: 'GET',
-            headers: construirHeadersAuth()
-        }
+    return manejarPeticion(
+        apiClient.get('/publicaciones/gestion/inmuebles-publicables'),
+        'Error al listar inmuebles publicables'
     );
-
-    return manejarRespuesta(response);
 };
 
 export const crearPublicacionGestion = async (
     formData: PublicacionFormData
 ) => {
-    const response = await fetch(`${API_URL}/publicaciones/gestion`, {
-        method: 'POST',
-        headers: construirHeadersJson(),
-        body: JSON.stringify({
+    return manejarPeticion(
+        apiClient.post('/publicaciones/gestion', {
             ...formData,
             inmueble_id: Number(formData.inmueble_id),
-            precio_publicado_mensual: Number(formData.precio_publicado_mensual)
-        })
-    });
-
-    return manejarRespuesta(response);
+            precio_publicado_mensual: Number(
+                formData.precio_publicado_mensual
+            )
+        }),
+        'Error al crear publicación'
+    );
 };
 
 export const subirFotoPublicacion = async (
@@ -250,50 +242,44 @@ export const subirFotoPublicacion = async (
     formData.append('es_principal', String(esPrincipal));
     formData.append('orden_visual', String(ordenVisual));
 
-    const response = await fetch(
-        `${API_URL}/publicaciones/gestion/${publicacionId}/fotos`,
-        {
-            method: 'POST',
-            headers: construirHeadersAuth(),
-            body: formData
-        }
+    return manejarPeticion(
+        apiClient.post(
+            `/publicaciones/gestion/${publicacionId}/fotos`,
+            formData
+        ),
+        'Error al subir foto de publicación'
     );
-
-    return manejarRespuesta(response);
 };
 
-export const publicarPublicacionGestion = async (publicacionId: number) => {
-    const response = await fetch(
-        `${API_URL}/publicaciones/gestion/${publicacionId}/publicar`,
-        {
-            method: 'PATCH',
-            headers: construirHeadersAuth()
-        }
+export const publicarPublicacionGestion = async (
+    publicacionId: number
+) => {
+    return manejarPeticion(
+        apiClient.patch(
+            `/publicaciones/gestion/${publicacionId}/publicar`
+        ),
+        'Error al publicar publicación'
     );
-
-    return manejarRespuesta(response);
 };
 
-export const eliminarBorradorPublicacionGestion = async (publicacionId: number) => {
-    const response = await fetch(
-        `${API_URL}/publicaciones/gestion/${publicacionId}/borrador`,
-        {
-            method: 'DELETE',
-            headers: construirHeadersAuth()
-        }
+export const eliminarBorradorPublicacionGestion = async (
+    publicacionId: number
+) => {
+    return manejarPeticion(
+        apiClient.delete(
+            `/publicaciones/gestion/${publicacionId}/borrador`
+        ),
+        'Error al eliminar borrador de publicación'
     );
-
-    return manejarRespuesta(response);
 };
 
-export const eliminarPublicacionGestion = async (publicacionId: number) => {
-    const response = await fetch(
-        `${API_URL}/publicaciones/gestion/${publicacionId}`,
-        {
-            method: 'DELETE',
-            headers: construirHeadersAuth()
-        }
+export const eliminarPublicacionGestion = async (
+    publicacionId: number
+) => {
+    return manejarPeticion(
+        apiClient.delete(
+            `/publicaciones/gestion/${publicacionId}`
+        ),
+        'Error al eliminar publicación'
     );
-
-    return manejarRespuesta(response);
 };

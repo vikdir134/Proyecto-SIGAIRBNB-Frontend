@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import API_URL from '../services/api';
+import type { AxiosError } from 'axios';
+import apiClient from '../services/apiClient';
 import '../NotificacionesCampana.css';
 
 interface Notificacion {
@@ -18,6 +19,32 @@ interface Notificacion {
     activo: boolean;
 }
 
+interface ErrorBackend {
+    mensaje?: string;
+    error?: string;
+}
+
+interface ContadorNotificacionesResponse {
+    total_no_leidas?: number;
+}
+
+interface ListarNotificacionesResponse {
+    notificaciones?: Notificacion[];
+}
+
+const obtenerMensajeError = (
+    error: unknown,
+    mensajeDefault: string
+): string => {
+    const axiosError = error as AxiosError<ErrorBackend>;
+
+    return (
+        axiosError.response?.data?.mensaje ||
+        axiosError.response?.data?.error ||
+        mensajeDefault
+    );
+};
+
 function NotificacionesCampana() {
     const [abierto, setAbierto] = useState(false);
     const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
@@ -25,59 +52,52 @@ function NotificacionesCampana() {
     const [cargando, setCargando] = useState(false);
     const contenedorRef = useRef<HTMLDivElement | null>(null);
 
-    const obtenerToken = () => {
-        return localStorage.getItem('token');
+    const haySesionActiva = () => {
+        return Boolean(localStorage.getItem('token'));
     };
 
     const cargarContador = async () => {
-        const token = obtenerToken();
-
-        if (!token) return;
+        if (!haySesionActiva()) return;
 
         try {
-            const response = await fetch(`${API_URL}/notificaciones/contador/no-leidas`, {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            });
+            const response = await apiClient.get<ContadorNotificacionesResponse>(
+                '/notificaciones/contador/no-leidas'
+            );
 
-            const data = await response.json();
-
-            if (!response.ok) {
-                console.error(data.mensaje || 'Error al obtener contador de notificaciones');
-                return;
-            }
-
-            setTotalNoLeidas(data.total_no_leidas || 0);
+            setTotalNoLeidas(response.data.total_no_leidas || 0);
         } catch (error) {
-            console.error('Error al cargar contador de notificaciones:', error);
+            console.error(
+                obtenerMensajeError(
+                    error,
+                    'Error al cargar contador de notificaciones'
+                )
+            );
         }
     };
 
     const cargarNotificaciones = async () => {
-        const token = obtenerToken();
-
-        if (!token) return;
+        if (!haySesionActiva()) return;
 
         try {
             setCargando(true);
 
-            const response = await fetch(`${API_URL}/notificaciones?limite=8`, {
-                headers: {
-                    Authorization: `Bearer ${token}`
+            const response = await apiClient.get<ListarNotificacionesResponse>(
+                '/notificaciones',
+                {
+                    params: {
+                        limite: 8
+                    }
                 }
-            });
+            );
 
-            const data = await response.json();
-
-            if (!response.ok) {
-                console.error(data.mensaje || 'Error al obtener notificaciones');
-                return;
-            }
-
-            setNotificaciones(data.notificaciones || []);
+            setNotificaciones(response.data.notificaciones || []);
         } catch (error) {
-            console.error('Error al cargar notificaciones:', error);
+            console.error(
+                obtenerMensajeError(
+                    error,
+                    'Error al cargar notificaciones'
+                )
+            );
         } finally {
             setCargando(false);
         }
@@ -94,58 +114,41 @@ function NotificacionesCampana() {
     };
 
     const marcarComoLeida = async (notificacion_id: number) => {
-        const token = obtenerToken();
-
-        if (!token) return;
+        if (!haySesionActiva()) return;
 
         try {
-            const response = await fetch(`${API_URL}/notificaciones/${notificacion_id}/leer`, {
-                method: 'PATCH',
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                console.error(data.mensaje || 'Error al marcar notificación como leída');
-                return;
-            }
+            await apiClient.patch(
+                `/notificaciones/${notificacion_id}/leer`
+            );
 
             setNotificaciones((prev) =>
                 prev.map((notificacion) =>
                     notificacion.notificacion_id === notificacion_id
-                        ? { ...notificacion, leida: true, fecha_lectura: new Date().toISOString() }
+                        ? {
+                              ...notificacion,
+                              leida: true,
+                              fecha_lectura: new Date().toISOString()
+                          }
                         : notificacion
                 )
             );
 
             await cargarContador();
         } catch (error) {
-            console.error('Error al marcar notificación como leída:', error);
+            console.error(
+                obtenerMensajeError(
+                    error,
+                    'Error al marcar notificación como leída'
+                )
+            );
         }
     };
 
     const marcarTodasComoLeidas = async () => {
-        const token = obtenerToken();
-
-        if (!token) return;
+        if (!haySesionActiva()) return;
 
         try {
-            const response = await fetch(`${API_URL}/notificaciones/leer-todas`, {
-                method: 'PATCH',
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                console.error(data.mensaje || 'Error al marcar todas como leídas');
-                return;
-            }
+            await apiClient.patch('/notificaciones/leer-todas');
 
             setNotificaciones((prev) =>
                 prev.map((notificacion) => ({
@@ -157,7 +160,12 @@ function NotificacionesCampana() {
 
             setTotalNoLeidas(0);
         } catch (error) {
-            console.error('Error al marcar todas como leídas:', error);
+            console.error(
+                obtenerMensajeError(
+                    error,
+                    'Error al marcar todas como leídas'
+                )
+            );
         }
     };
 
@@ -250,8 +258,14 @@ function NotificacionesCampana() {
                                 <button
                                     type="button"
                                     key={notificacion.notificacion_id}
-                                    className={`notificacion-item ${!notificacion.leida ? 'no-leida' : ''}`}
-                                    onClick={() => marcarComoLeida(notificacion.notificacion_id)}
+                                    className={`notificacion-item ${
+                                        !notificacion.leida ? 'no-leida' : ''
+                                    }`}
+                                    onClick={() =>
+                                        marcarComoLeida(
+                                            notificacion.notificacion_id
+                                        )
+                                    }
                                 >
                                     <div className="notificacion-contenido">
                                         <div className="notificacion-titulo-linea">
@@ -265,7 +279,9 @@ function NotificacionesCampana() {
                                         <p>{notificacion.mensaje}</p>
 
                                         <span className="notificacion-fecha">
-                                            {formatearFecha(notificacion.fecha_creacion)}
+                                            {formatearFecha(
+                                                notificacion.fecha_creacion
+                                            )}
                                         </span>
                                     </div>
                                 </button>

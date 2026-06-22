@@ -1,22 +1,5 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-
-const obtenerToken = () => {
-  return (
-    localStorage.getItem('token') ||
-    localStorage.getItem('authToken') ||
-    localStorage.getItem('accessToken') ||
-    ''
-  );
-};
-
-const crearHeaders = () => {
-  const token = obtenerToken();
-
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`
-  };
-};
+import type { AxiosError, AxiosResponse } from 'axios';
+import apiClient from './apiClient';
 
 export interface CategoriaIngreso {
   categoria_movimiento_id: number;
@@ -136,67 +119,102 @@ export interface RegistrarIngresoPayload {
   observaciones?: string;
 }
 
-const manejarRespuesta = async (response: Response) => {
-  const data = await response.json().catch(() => null);
+interface ErrorBackend {
+  mensaje?: string;
+  error?: string;
+  errores?: string[];
+}
 
-  if (!response.ok) {
-    throw new Error(
-      data?.mensaje ||
-        data?.errores?.join(', ') ||
-        'Ocurrió un error en la solicitud.'
-    );
+interface FormularioIngresoResponse {
+  mensaje?: string;
+  categorias?: CategoriaIngreso[];
+  cuentas?: CuentaIngreso[];
+  recibos_pendientes?: ReciboPendienteIngreso[];
+}
+
+interface RecibosPendientesIngresoResponse {
+  mensaje?: string;
+  recibos?: ReciboPendienteIngreso[];
+}
+
+interface ListarIngresosAlquilerResponse {
+  mensaje?: string;
+  ingresos?: IngresoAlquiler[];
+}
+
+interface RegistrarIngresoAlquilerResponse {
+  mensaje?: string;
+  ingreso: IngresoAlquiler;
+}
+
+const obtenerMensajeError = (
+  error: unknown,
+  mensajeDefault: string
+): string => {
+  const axiosError = error as AxiosError<ErrorBackend>;
+  const data = axiosError.response?.data;
+
+  return (
+    data?.mensaje ||
+    data?.error ||
+    data?.errores?.join(', ') ||
+    mensajeDefault
+  );
+};
+
+const manejarPeticion = async <T>(
+  peticion: Promise<AxiosResponse<T>>,
+  mensajeDefault = 'Ocurrió un error en la solicitud.'
+): Promise<T> => {
+  try {
+    const response = await peticion;
+    return response.data;
+  } catch (error) {
+    throw new Error(obtenerMensajeError(error, mensajeDefault));
   }
-
-  return data;
 };
 
-export const obtenerDatosFormularioIngreso = async (): Promise<DatosFormularioIngreso> => {
-  const response = await fetch(`${API_URL}/ingresos-alquiler/formulario`, {
-    method: 'GET',
-    headers: crearHeaders()
-  });
+export const obtenerDatosFormularioIngreso =
+  async (): Promise<DatosFormularioIngreso> => {
+    const data = await manejarPeticion<FormularioIngresoResponse>(
+      apiClient.get('/ingresos-alquiler/formulario'),
+      'Error al obtener los datos del formulario de ingresos.'
+    );
 
-  const data = await manejarRespuesta(response);
-
-  return {
-    categorias: data.categorias || [],
-    cuentas: data.cuentas || [],
-    recibos_pendientes: data.recibos_pendientes || []
+    return {
+      categorias: data.categorias || [],
+      cuentas: data.cuentas || [],
+      recibos_pendientes: data.recibos_pendientes || []
+    };
   };
-};
 
-export const listarRecibosPendientesIngreso = async (): Promise<ReciboPendienteIngreso[]> => {
-  const response = await fetch(`${API_URL}/ingresos-alquiler/recibos-pendientes`, {
-    method: 'GET',
-    headers: crearHeaders()
-  });
+export const listarRecibosPendientesIngreso =
+  async (): Promise<ReciboPendienteIngreso[]> => {
+    const data = await manejarPeticion<RecibosPendientesIngresoResponse>(
+      apiClient.get('/ingresos-alquiler/recibos-pendientes'),
+      'Error al listar los recibos pendientes.'
+    );
 
-  const data = await manejarRespuesta(response);
+    return data.recibos || [];
+  };
 
-  return data.recibos || [];
-};
+export const listarIngresosAlquiler =
+  async (): Promise<IngresoAlquiler[]> => {
+    const data = await manejarPeticion<ListarIngresosAlquilerResponse>(
+      apiClient.get('/ingresos-alquiler/ingresos'),
+      'Error al listar los ingresos de alquiler.'
+    );
 
-export const listarIngresosAlquiler = async (): Promise<IngresoAlquiler[]> => {
-  const response = await fetch(`${API_URL}/ingresos-alquiler/ingresos`, {
-    method: 'GET',
-    headers: crearHeaders()
-  });
-
-  const data = await manejarRespuesta(response);
-
-  return data.ingresos || [];
-};
+    return data.ingresos || [];
+  };
 
 export const registrarIngresoAlquiler = async (
   payload: RegistrarIngresoPayload
-) => {
-  const response = await fetch(`${API_URL}/ingresos-alquiler/ingresos`, {
-    method: 'POST',
-    headers: crearHeaders(),
-    body: JSON.stringify(payload)
-  });
-
-  const data = await manejarRespuesta(response);
+): Promise<IngresoAlquiler> => {
+  const data = await manejarPeticion<RegistrarIngresoAlquilerResponse>(
+    apiClient.post('/ingresos-alquiler/ingresos', payload),
+    'Error al registrar el ingreso de alquiler.'
+  );
 
   return data.ingreso;
 };

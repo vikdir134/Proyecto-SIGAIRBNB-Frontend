@@ -1,5 +1,5 @@
-import API_URL from './api';
-
+import type { AxiosError, AxiosResponse } from 'axios';
+import apiClient from './apiClient';
 
 export interface InmuebleDisponibilidad {
     inmueble_id: number;
@@ -55,48 +55,50 @@ export interface EditarBloqueoFormData {
     origen: 'MANUAL' | 'MANTENIMIENTO' | 'OTRO';
 }
 
-const obtenerToken = () => {
-    return localStorage.getItem('token');
+interface ErrorBackend {
+    mensaje?: string;
+    error?: string;
+}
+
+const obtenerMensajeError = (
+    error: unknown,
+    mensajeDefault: string
+): string => {
+    const axiosError = error as AxiosError<ErrorBackend>;
+
+    return (
+        axiosError.response?.data?.mensaje ||
+        axiosError.response?.data?.error ||
+        mensajeDefault
+    );
 };
 
-const construirHeaders = () => {
-    const token = obtenerToken();
-
-    return {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-    };
-};
-
-const manejarRespuesta = async (response: Response) => {
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.mensaje || 'Ocurrió un error en la solicitud');
+const manejarPeticion = async <T>(
+    peticion: Promise<AxiosResponse<T>>,
+    mensajeDefault = 'Ocurrió un error en la solicitud'
+): Promise<T> => {
+    try {
+        const response = await peticion;
+        return response.data;
+    } catch (error) {
+        throw new Error(obtenerMensajeError(error, mensajeDefault));
     }
-
-    return data;
 };
 
 export const listarInmueblesDisponibilidad = async () => {
-    const response = await fetch(`${API_URL}/disponibilidad/inmuebles`, {
-        method: 'GET',
-        headers: construirHeaders()
-    });
-
-    return manejarRespuesta(response);
+    return manejarPeticion(
+        apiClient.get('/disponibilidad/inmuebles'),
+        'Error al listar inmuebles para disponibilidad'
+    );
 };
 
-export const listarBloqueosPorInmueble = async (inmuebleId: number) => {
-    const response = await fetch(
-        `${API_URL}/disponibilidad/inmuebles/${inmuebleId}/bloqueos`,
-        {
-            method: 'GET',
-            headers: construirHeaders()
-        }
+export const listarBloqueosPorInmueble = async (
+    inmuebleId: number
+) => {
+    return manejarPeticion(
+        apiClient.get(`/disponibilidad/inmuebles/${inmuebleId}/bloqueos`),
+        'Error al listar bloqueos del inmueble'
     );
-
-    return manejarRespuesta(response);
 };
 
 export const obtenerCalendarioDisponibilidad = async (
@@ -104,53 +106,44 @@ export const obtenerCalendarioDisponibilidad = async (
     fechaInicio: string,
     fechaFin: string
 ) => {
-    const response = await fetch(
-        `${API_URL}/disponibilidad/inmuebles/${inmuebleId}/calendario?fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`,
-        {
-            method: 'GET',
-            headers: construirHeaders()
-        }
+    return manejarPeticion(
+        apiClient.get(
+            `/disponibilidad/inmuebles/${inmuebleId}/calendario`,
+            {
+                params: {
+                    fecha_inicio: fechaInicio,
+                    fecha_fin: fechaFin
+                }
+            }
+        ),
+        'Error al obtener calendario de disponibilidad'
     );
-
-    return manejarRespuesta(response);
 };
 
 export const crearBloqueoDisponibilidad = async (
     formData: BloqueoFormData
 ) => {
-    const response = await fetch(`${API_URL}/disponibilidad/bloqueos`, {
-        method: 'POST',
-        headers: construirHeaders(),
-        body: JSON.stringify(formData)
-    });
-
-    return manejarRespuesta(response);
+    return manejarPeticion(
+        apiClient.post('/disponibilidad/bloqueos', formData),
+        'Error al crear bloqueo de disponibilidad'
+    );
 };
 
 export const editarBloqueoDisponibilidad = async (
     bloqueoId: number,
     formData: EditarBloqueoFormData
 ) => {
-    const response = await fetch(
-        `${API_URL}/disponibilidad/bloqueos/${bloqueoId}`,
-        {
-            method: 'PUT',
-            headers: construirHeaders(),
-            body: JSON.stringify(formData)
-        }
+    return manejarPeticion(
+        apiClient.put(`/disponibilidad/bloqueos/${bloqueoId}`, formData),
+        'Error al editar bloqueo de disponibilidad'
     );
-
-    return manejarRespuesta(response);
 };
 
-export const eliminarBloqueoDisponibilidad = async (bloqueoId: number) => {
-    const response = await fetch(
-        `${API_URL}/disponibilidad/bloqueos/${bloqueoId}`,
-        {
-            method: 'DELETE',
-            headers: construirHeaders()
-        }
+export const eliminarBloqueoDisponibilidad = async (
+    bloqueoId: number
+) => {
+    return manejarPeticion(
+        apiClient.delete(`/disponibilidad/bloqueos/${bloqueoId}`),
+        'Error al eliminar bloqueo de disponibilidad'
     );
-
-    return manejarRespuesta(response);
 };

@@ -1,4 +1,5 @@
-import API_URL from './api';
+import type { AxiosError, AxiosResponse } from 'axios';
+import apiClient from './apiClient';
 
 export type PerfilData = {
     usuario_id: number;
@@ -39,54 +40,69 @@ export type NotificacionesData = {
     recibe_notif_sms: boolean;
 };
 
-const obtenerToken = () => {
-    return localStorage.getItem('token');
-};
+interface ErrorBackend {
+    mensaje?: string;
+    error?: string;
+}
 
-export const obtenerPerfil = async (): Promise<PerfilData> => {
-    const token = obtenerToken();
+interface PerfilResponse {
+    mensaje?: string;
+    perfil: PerfilData;
+}
+
+const validarSesion = () => {
+    const token = localStorage.getItem('token');
 
     if (!token) {
         throw new Error('No hay token de autenticación');
     }
+};
 
-    const response = await fetch(`${API_URL}/perfil`, {
-        method: 'GET',
-        headers: {
-            Authorization: `Bearer ${token}`
-        }
-    });
+const obtenerMensajeError = (
+    error: unknown,
+    mensajeDefault: string
+): string => {
+    const axiosError = error as AxiosError<ErrorBackend>;
 
-    const data = await response.json();
+    return (
+        axiosError.response?.data?.mensaje ||
+        axiosError.response?.data?.error ||
+        mensajeDefault
+    );
+};
 
-    if (!response.ok) {
-        throw new Error(data.mensaje || 'No se pudo obtener el perfil');
+const manejarPeticion = async <T>(
+    peticion: Promise<AxiosResponse<T>>,
+    mensajeDefault: string
+): Promise<T> => {
+    try {
+        const response = await peticion;
+        return response.data;
+    } catch (error) {
+        throw new Error(obtenerMensajeError(error, mensajeDefault));
     }
+};
+
+export const obtenerPerfil = async (): Promise<PerfilData> => {
+    validarSesion();
+
+    const data = await manejarPeticion<PerfilResponse>(
+        apiClient.get('/perfil'),
+        'No se pudo obtener el perfil'
+    );
 
     return data.perfil;
 };
 
-export const actualizarPerfil = async (perfil: PerfilFormData): Promise<PerfilData> => {
-    const token = obtenerToken();
+export const actualizarPerfil = async (
+    perfil: PerfilFormData
+): Promise<PerfilData> => {
+    validarSesion();
 
-    if (!token) {
-        throw new Error('No hay token de autenticación');
-    }
-
-    const response = await fetch(`${API_URL}/perfil`, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(perfil)
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.mensaje || 'No se pudo actualizar el perfil');
-    }
+    const data = await manejarPeticion<PerfilResponse>(
+        apiClient.put('/perfil', perfil),
+        'No se pudo actualizar el perfil'
+    );
 
     return data.perfil;
 };
@@ -94,26 +110,12 @@ export const actualizarPerfil = async (perfil: PerfilFormData): Promise<PerfilDa
 export const actualizarNotificaciones = async (
     notificaciones: NotificacionesData
 ): Promise<PerfilData> => {
-    const token = obtenerToken();
+    validarSesion();
 
-    if (!token) {
-        throw new Error('No hay token de autenticación');
-    }
-
-    const response = await fetch(`${API_URL}/perfil/notificaciones`, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(notificaciones)
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.mensaje || 'No se pudieron actualizar las notificaciones');
-    }
+    const data = await manejarPeticion<PerfilResponse>(
+        apiClient.put('/perfil/notificaciones', notificaciones),
+        'No se pudieron actualizar las notificaciones'
+    );
 
     return data.perfil;
 };

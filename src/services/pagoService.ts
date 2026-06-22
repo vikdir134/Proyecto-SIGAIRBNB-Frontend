@@ -1,4 +1,5 @@
-import API_URL from './api';
+import type { AxiosError } from 'axios';
+import apiClient from './apiClient';
 
 export interface ReciboPendiente {
     recibo_id: number;
@@ -55,94 +56,109 @@ export interface Pago {
 
 export type MetodoPago = 'ONLINE' | 'TARJETA' | 'TRANSFERENCIA' | 'EFECTIVO';
 
-const obtenerToken = () => {
-    return localStorage.getItem('token');
-};
+interface ErrorBackend {
+    mensaje?: string;
+    error?: string;
+}
 
-const crearHeaders = () => {
-    const token = obtenerToken();
+interface RecibosPendientesResponse {
+    mensaje?: string;
+    recibos?: ReciboPendiente[];
+}
 
-    return {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-    };
+interface DetalleReciboResponse {
+    mensaje?: string;
+    recibo: ReciboPendiente;
+}
+
+interface PagarReciboResponse {
+    pago: Pago;
+    monto_pagado: number;
+    mensaje: string;
+}
+
+interface MisPagosResponse {
+    mensaje?: string;
+    pagos?: Pago[];
+}
+
+const obtenerMensajeError = (error: unknown, mensajeDefault: string) => {
+    const axiosError = error as AxiosError<ErrorBackend>;
+
+    return (
+        axiosError.response?.data?.mensaje ||
+        axiosError.response?.data?.error ||
+        mensajeDefault
+    );
 };
 
 export const obtenerMisRecibosPendientes = async (): Promise<ReciboPendiente[]> => {
-    const response = await fetch(`${API_URL}/pagos/mis-recibos-pendientes`, {
-        method: 'GET',
-        headers: crearHeaders()
-    });
+    try {
+        const response = await apiClient.get<RecibosPendientesResponse>(
+            '/pagos/mis-recibos-pendientes'
+        );
 
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.mensaje || 'Error al obtener los recibos pendientes.');
+        return response.data.recibos || [];
+    } catch (error) {
+        throw new Error(
+            obtenerMensajeError(error, 'Error al obtener los recibos pendientes.')
+        );
     }
-
-    return data.recibos || [];
 };
 
 export const obtenerDetalleReciboParaPago = async (
     recibo_id: number
 ): Promise<ReciboPendiente> => {
-    const response = await fetch(`${API_URL}/pagos/recibos/${recibo_id}`, {
-        method: 'GET',
-        headers: crearHeaders()
-    });
+    try {
+        const response = await apiClient.get<DetalleReciboResponse>(
+            `/pagos/recibos/${recibo_id}`
+        );
 
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.mensaje || 'Error al obtener el detalle del recibo.');
+        return response.data.recibo;
+    } catch (error) {
+        throw new Error(
+            obtenerMensajeError(error, 'Error al obtener el detalle del recibo.')
+        );
     }
-
-    return data.recibo;
 };
 
 export const pagarReciboOnline = async (
     recibo_id: number,
     metodo_pago: MetodoPago = 'ONLINE'
-): Promise<{
-    pago: Pago;
-    monto_pagado: number;
-    mensaje: string;
-}> => {
-    const metodoNormalizado = metodo_pago.toUpperCase() as MetodoPago;
+): Promise<PagarReciboResponse> => {
+    try {
+        const metodoNormalizado = metodo_pago.toUpperCase() as MetodoPago;
 
-    const response = await fetch(`${API_URL}/pagos/recibos/${recibo_id}/pagar-online`, {
-        method: 'POST',
-        headers: crearHeaders(),
-        body: JSON.stringify({
-            metodo_pago: metodoNormalizado,
-            proveedor_pasarela:
-                metodoNormalizado === 'ONLINE' || metodoNormalizado === 'TARJETA'
-                    ? 'SIMULADO'
-                    : null,
-            referencia: `PAGO-WEB-HU16-${metodoNormalizado}-${recibo_id}-${Date.now()}`
-        })
-    });
+        const response = await apiClient.post<PagarReciboResponse>(
+            `/pagos/recibos/${recibo_id}/pagar-online`,
+            {
+                metodo_pago: metodoNormalizado,
+                proveedor_pasarela:
+                    metodoNormalizado === 'ONLINE' || metodoNormalizado === 'TARJETA'
+                        ? 'SIMULADO'
+                        : null,
+                referencia: `PAGO-WEB-HU16-${metodoNormalizado}-${recibo_id}-${Date.now()}`
+            }
+        );
 
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.mensaje || 'Error al procesar el pago.');
+        return response.data;
+    } catch (error) {
+        throw new Error(
+            obtenerMensajeError(error, 'Error al procesar el pago.')
+        );
     }
-
-    return data;
 };
 
 export const obtenerMisPagos = async (): Promise<Pago[]> => {
-    const response = await fetch(`${API_URL}/pagos/mis-pagos`, {
-        method: 'GET',
-        headers: crearHeaders()
-    });
+    try {
+        const response = await apiClient.get<MisPagosResponse>(
+            '/pagos/mis-pagos'
+        );
 
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.mensaje || 'Error al obtener el historial de pagos.');
+        return response.data.pagos || [];
+    } catch (error) {
+        throw new Error(
+            obtenerMensajeError(error, 'Error al obtener el historial de pagos.')
+        );
     }
-
-    return data.pagos || [];
 };
