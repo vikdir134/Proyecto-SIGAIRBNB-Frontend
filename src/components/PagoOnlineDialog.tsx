@@ -47,8 +47,6 @@ function PagoOnlineDialog({
         if (metodoPago === 'ONLINE') return 'Pago online';
         if (metodoPago === 'TARJETA') return 'Tarjeta';
         if (metodoPago === 'TRANSFERENCIA') return 'Transferencia bancaria';
-        if (metodoPago === 'EFECTIVO') return 'Efectivo';
-
         return 'Pago online';
     };
 
@@ -114,7 +112,7 @@ function PagoOnlineDialog({
                             <option value="ONLINE">Pago online</option>
                             <option value="TARJETA">Tarjeta</option>
                             <option value="TRANSFERENCIA">Transferencia bancaria</option>
-                            <option value="EFECTIVO">Efectivo</option>
+                            
                         </select>
                     </div>
                 </div>

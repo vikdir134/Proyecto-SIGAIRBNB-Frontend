@@ -92,7 +92,6 @@ function MisPagos() {
         if (metodo === 'ONLINE') return 'Pago online';
         if (metodo === 'TARJETA') return 'Tarjeta';
         if (metodo === 'TRANSFERENCIA') return 'Transferencia';
-        if (metodo === 'EFECTIVO') return 'Efectivo';
 
         return metodo;
     };

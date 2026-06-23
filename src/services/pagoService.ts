@@ -54,7 +54,7 @@ export interface Pago {
     nombre_inmueble?: string;
 }
 
-export type MetodoPago = 'ONLINE' | 'TARJETA' | 'TRANSFERENCIA' | 'EFECTIVO';
+export type MetodoPago = 'ONLINE' | 'TARJETA' | 'TRANSFERENCIA';
 
 interface ErrorBackend {
     mensaje?: string;
