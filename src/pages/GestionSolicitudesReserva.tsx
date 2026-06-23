@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import SidebarGestion from '../components/SidebarGestion';
 import DetalleGestionReservaDialog from '../components/DetalleGestionReservaDialog';
 import ConfirmDecisionReservaDialog from '../components/ConfirmDecisionReservaDialog';
@@ -17,6 +17,7 @@ import {
 interface JwtPayload {
     roles?: string[];
 }
+const SOLICITUDES_POR_PAGINA = 5;
 
 const obtenerRolesDesdeToken = (): string[] => {
     try {
@@ -85,6 +86,7 @@ function GestionSolicitudesReserva() {
         esAdmin ? 'SOLICITADA' : 'APROBADA'
     );
     const [estadoVettingFiltro, setEstadoVettingFiltro] = useState('TODOS');
+    const [paginaActual, setPaginaActual] = useState(1);
     const [detalleAbierto, setDetalleAbierto] = useState(false);
     const [reservaDetalleId, setReservaDetalleId] = useState<number | null>(null);
 
@@ -129,7 +131,18 @@ function GestionSolicitudesReserva() {
                 estadoVettingParaEnviar
             );
 
-            setSolicitudes(response.solicitudes || []);
+            const nuevasSolicitudes = response.solicitudes || [];
+
+            setSolicitudes(nuevasSolicitudes);
+
+            setPaginaActual((paginaPrevia) => {
+                const totalPaginasNuevo = Math.max(
+                    1,
+                    Math.ceil(nuevasSolicitudes.length / SOLICITUDES_POR_PAGINA)
+                );
+
+                return Math.min(paginaPrevia, totalPaginasNuevo);
+            });
 
                 if (esAdmin) {
                     await cargarResumenVetting();
@@ -183,6 +196,7 @@ function GestionSolicitudesReserva() {
         estadoVetting: 'TODOS' | 'PENDIENTE' | 'APROBADO' | 'OBSERVADO' | 'RECHAZADO',
         estadoReserva: string = 'TODAS'
     ) => {
+        setPaginaActual(1);
         setEstadoFiltro(estadoReserva);
         setEstadoVettingFiltro(estadoVetting);
     };
@@ -321,6 +335,7 @@ function GestionSolicitudesReserva() {
     };
 
     useEffect(() => {
+        setPaginaActual(1);
         cargarSolicitudes();
     }, [estadoFiltro, estadoVettingFiltro]);
 
@@ -415,8 +430,35 @@ function GestionSolicitudesReserva() {
     };
     
     const esReservaCancelada = (solicitud: SolicitudReservaGestion) => {
-    return solicitud.estado_reserva === 'CANCELADA';
-};
+        return solicitud.estado_reserva === 'CANCELADA';
+    };
+
+    const totalSolicitudes = solicitudes.length;
+
+    const totalPaginas = Math.max(
+        1,
+        Math.ceil(totalSolicitudes / SOLICITUDES_POR_PAGINA)
+    );
+
+    const indiceInicio = (paginaActual - 1) * SOLICITUDES_POR_PAGINA;
+
+    const indiceFin = Math.min(
+        indiceInicio + SOLICITUDES_POR_PAGINA,
+        totalSolicitudes
+    );
+
+    const solicitudesPaginadas = useMemo(() => {
+        return solicitudes.slice(indiceInicio, indiceFin);
+    }, [solicitudes, indiceInicio, indiceFin]);
+
+    const irPaginaAnterior = () => {
+        setPaginaActual((pagina) => Math.max(1, pagina - 1));
+    };
+
+    const irPaginaSiguiente = () => {
+        setPaginaActual((pagina) => Math.min(totalPaginas, pagina + 1));
+    };
+
     return (
         <div className="gestion-layout">
             <SidebarGestion />
@@ -459,7 +501,10 @@ function GestionSolicitudesReserva() {
                         <select
                             id="estadoFiltro"
                             value={estadoFiltro}
-                            onChange={(e) => setEstadoFiltro(e.target.value)}
+                            onChange={(e) => {
+                                setPaginaActual(1);
+                                setEstadoFiltro(e.target.value);
+                            }}
                             disabled={cargando}
                         >
                             {esAdmin && (
@@ -511,9 +556,10 @@ function GestionSolicitudesReserva() {
                             <select
                                 id="estadoVettingFiltro"
                                 value={estadoVettingFiltro}
-                                onChange={(e) =>
-                                    setEstadoVettingFiltro(e.target.value)
-                                }
+                                onChange={(e) => {
+                                    setPaginaActual(1);
+                                    setEstadoVettingFiltro(e.target.value);
+                                }}
                                 disabled={cargando}
                             >
                                 <option value="TODOS">Todos</option>
@@ -548,7 +594,8 @@ function GestionSolicitudesReserva() {
                         type="button"
                         className="gestion-btn-secondary"
                         onClick={() => {
-                            setEstadoFiltro('SOLICITADA');
+                            setPaginaActual(1);
+                            setEstadoFiltro(esAdmin ? 'SOLICITADA' : 'APROBADA');
                             setEstadoVettingFiltro('TODOS');
                         }}
                         disabled={cargando}
@@ -647,7 +694,8 @@ function GestionSolicitudesReserva() {
                             type="button"
                             className="gestion-btn-secondary"
                             onClick={() => {
-                                setEstadoFiltro('SOLICITADA');
+                                setPaginaActual(1);
+                                setEstadoFiltro(esAdmin ? 'SOLICITADA' : 'APROBADA');
                                 setEstadoVettingFiltro('TODOS');
                             }}
                         >
@@ -657,8 +705,13 @@ function GestionSolicitudesReserva() {
                 )}
 
                 {!cargando && solicitudes.length > 0 && (
-                    <section className="gestion-solicitudes-list">
-                        {solicitudes.map((solicitud) => (
+                    <>
+                        <div className="gestion-pagination-info">
+                            Mostrando {indiceInicio + 1} - {indiceFin} de {totalSolicitudes} solicitudes
+                        </div>
+
+                        <section className="gestion-solicitudes-list">
+                            {solicitudesPaginadas.map((solicitud) => (
                             <article
                                 key={solicitud.reserva_id}
                                 className="gestion-solicitud-card"
@@ -972,8 +1025,35 @@ function GestionSolicitudesReserva() {
                                     </div>
                                 </div>
                             </article>
-                        ))}
-                    </section>
+                            ))}
+                        </section>
+
+                        {totalPaginas > 1 && (
+                            <div className="gestion-pagination">
+                                <button
+                                    type="button"
+                                    className="gestion-btn-secondary"
+                                    onClick={irPaginaAnterior}
+                                    disabled={paginaActual === 1}
+                                >
+                                    Anterior
+                                </button>
+
+                                <span>
+                                    Página {paginaActual} de {totalPaginas}
+                                </span>
+
+                                <button
+                                    type="button"
+                                    className="gestion-btn-secondary"
+                                    onClick={irPaginaSiguiente}
+                                    disabled={paginaActual === totalPaginas}
+                                >
+                                    Siguiente
+                                </button>
+                            </div>
+                        )}
+                    </>
                 )}
             </main>
 

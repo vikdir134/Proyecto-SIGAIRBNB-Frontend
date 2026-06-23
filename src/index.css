@@ -2056,3 +2056,24 @@ a {
     opacity: 0.65;
     cursor: not-allowed;
 }
+.gestion-pagination-info {
+    margin: 16px 0 10px;
+    font-size: 0.9rem;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.gestion-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 14px;
+    margin: 24px 0 8px;
+    flex-wrap: wrap;
+}
+
+.gestion-pagination span {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #374151;
+}
