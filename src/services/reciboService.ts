@@ -55,6 +55,12 @@ export interface ConceptoPreviewRecibo {
     editable: boolean;
 }
 
+export interface ConceptoEditadoRecibo {
+    concepto_cobro_id: number;
+    cantidad: number;
+    precio_unitario: number;
+}
+
 export interface VistaPreviaRecibo {
     reserva: unknown;
     conceptos: ConceptoPreviewRecibo[];
@@ -172,7 +178,8 @@ export const verReciboPdf = async (
 
 export const generarReciboReservaGestion = async (
     reservaId: number,
-    observaciones?: string
+    observaciones?: string,
+    conceptosEditados: ConceptoEditadoRecibo[] = []
 ): Promise<GenerarReciboResponse> => {
     try {
         const response = await apiClient.post<GenerarReciboResponse>(
@@ -180,7 +187,8 @@ export const generarReciboReservaGestion = async (
             {
                 observaciones:
                     observaciones ||
-                    'Boleta digital emitida desde la gestión de reservas.'
+                    'Boleta digital emitida desde la gestión de reservas.',
+                conceptos_editados: conceptosEditados
             }
         );
 
@@ -194,7 +202,6 @@ export const generarReciboReservaGestion = async (
         );
     }
 };
-
 export const listarRecibosReserva = async (
     reservaId: number
 ): Promise<ListarRecibosReservaResponse> => {

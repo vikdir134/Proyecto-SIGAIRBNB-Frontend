@@ -21,6 +21,7 @@ import {
     obtenerNumeroVisualRecibo,
     previsualizarReciboReservaGestion,
     verReciboPdf,
+    type ConceptoEditadoRecibo,
     type ReciboReserva,
     type VistaPreviaRecibo
 } from '../services/reciboService';
@@ -403,38 +404,131 @@ function DetalleGestionReservaDialog({
         setErrorBoleta('');
     };
 
-    const confirmarEmisionBoletaDigital = async () => {
-        if (!reservaId) return;
+    const actualizarConceptoPreview = (
+    conceptoCobroId: number,
+    campo: 'cantidad' | 'precio_unitario',
+    valor: string
+) => {
+    if (!previewRecibo) return;
 
-        try {
-            setProcesandoRecibo(true);
-            setError('');
-            setMensaje('');
-            setErrorBoleta('');
+    const valorNumerico = Number(valor);
 
-            const response =
-                await generarReciboReservaGestion(
-                    reservaId,
-                    'Boleta digital emitida luego de revisión de conceptos de cobro.'
-                );
+    if (Number.isNaN(valorNumerico) || valorNumerico < 0) {
+        return;
+    }
 
-            setMensaje(response.mensaje);
-            setPreviewAbierto(false);
-            setPreviewRecibo(null);
-            setErrorBoleta('');
+    const conceptosActualizados =
+        previewRecibo.conceptos.map((concepto) => {
+            if (
+                concepto.concepto_cobro_id !== conceptoCobroId ||
+                !concepto.editable
+            ) {
+                return concepto;
+            }
 
-            await cargarDetalle();
-        } catch (err) {
-            const mensajeError = obtenerMensajeErrorApi(
-                err,
-                'No se pudo generar la boleta digital.'
+            const cantidad =
+                campo === 'cantidad'
+                    ? valorNumerico
+                    : Number(concepto.cantidad || 0);
+
+            const precioUnitario =
+                campo === 'precio_unitario'
+                    ? valorNumerico
+                    : Number(concepto.precio_unitario || 0);
+
+            const importe = Number(
+                (cantidad * precioUnitario).toFixed(2)
             );
 
-            setErrorBoleta(mensajeError);
-        } finally {
-            setProcesandoRecibo(false);
-        }
-    };
+            const igv = concepto.aplica_igv
+                ? Number((importe * 0.18).toFixed(2))
+                : 0;
+
+            const totalLinea = Number(
+                (importe + igv).toFixed(2)
+            );
+
+            return {
+                ...concepto,
+                cantidad,
+                precio_unitario: precioUnitario,
+                importe,
+                igv,
+                total_linea: totalLinea
+            };
+        });
+
+    const subtotal = Number(
+        conceptosActualizados
+            .reduce((total, concepto) => {
+                return total + Number(concepto.importe || 0);
+            }, 0)
+            .toFixed(2)
+    );
+
+    const igvTotal = Number(
+        conceptosActualizados
+            .reduce((total, concepto) => {
+                return total + Number(concepto.igv || 0);
+            }, 0)
+            .toFixed(2)
+    );
+
+    const total = Number((subtotal + igvTotal).toFixed(2));
+
+    setPreviewRecibo({
+        ...previewRecibo,
+        conceptos: conceptosActualizados,
+        subtotal,
+        igv_total: igvTotal,
+        total
+    });
+};
+  const confirmarEmisionBoletaDigital = async () => {
+    if (!reservaId || !previewRecibo) return;
+
+    try {
+        setProcesandoRecibo(true);
+        setError('');
+        setMensaje('');
+        setErrorBoleta('');
+
+        const conceptosEditados: ConceptoEditadoRecibo[] =
+            previewRecibo.conceptos
+                .filter((concepto) => concepto.editable)
+                .map((concepto) => ({
+                    concepto_cobro_id:
+                        concepto.concepto_cobro_id,
+                    cantidad: Number(concepto.cantidad || 0),
+                    precio_unitario: Number(
+                        concepto.precio_unitario || 0
+                    )
+                }));
+
+        const response =
+            await generarReciboReservaGestion(
+                reservaId,
+                'Boleta digital emitida luego de revisión de conceptos de cobro.',
+                conceptosEditados
+            );
+
+        setMensaje(response.mensaje);
+        setPreviewAbierto(false);
+        setPreviewRecibo(null);
+        setErrorBoleta('');
+
+        await cargarDetalle();
+    } catch (err) {
+        const mensajeError = obtenerMensajeErrorApi(
+            err,
+            'No se pudo generar la boleta digital.'
+        );
+
+        setErrorBoleta(mensajeError);
+    } finally {
+        setProcesandoRecibo(false);
+    }
+};
 
     const descargarBoletaDigital = async (
         reciboId: number
@@ -992,6 +1086,7 @@ function DetalleGestionReservaDialog({
                                     <tr>
                                         <th>Concepto</th>
                                         <th>Cant.</th>
+                                        <th>Precio unit.</th>
                                         <th>Subtotal</th>
                                         <th>IGV</th>
                                         <th>Total</th>
@@ -1020,17 +1115,55 @@ function DetalleGestionReservaDialog({
                                                 </td>
 
                                                 <td>
-                                                    {Number(
-                                                        concepto.cantidad
-                                                    ).toFixed(2)}
-                                                </td>
+                                        {concepto.editable ? (
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={concepto.cantidad}
+                                                onChange={(event) =>
+                                                    actualizarConceptoPreview(
+                                                        concepto.concepto_cobro_id,
+                                                        'cantidad',
+                                                        event.target.value
+                                                    )
+                                                }
+                                                disabled={procesandoRecibo}
+                                                className="recibo-preview-input"
+                                            />
+                                        ) : (
+                                            Number(concepto.cantidad).toFixed(2)
+                                        )}
+                                    </td>
 
-                                                <td>
-                                                    S/{' '}
-                                                    {Number(
-                                                        concepto.importe
-                                                    ).toFixed(2)}
-                                                </td>
+                                    <td>
+                                        {concepto.editable ? (
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={concepto.precio_unitario}
+                                                onChange={(event) =>
+                                                    actualizarConceptoPreview(
+                                                        concepto.concepto_cobro_id,
+                                                        'precio_unitario',
+                                                        event.target.value
+                                                    )
+                                                }
+                                                disabled={procesandoRecibo}
+                                                className="recibo-preview-input"
+                                            />
+                                        ) : (
+                                            <>S/ {Number(concepto.precio_unitario).toFixed(2)}</>
+                                        )}
+                                    </td>
+
+                                    <td>
+                                        S/{' '}
+                                        {Number(
+                                            concepto.importe
+                                        ).toFixed(2)}
+                                    </td>
 
                                                 <td>
                                                     S/{' '}

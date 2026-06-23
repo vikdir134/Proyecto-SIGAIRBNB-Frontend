@@ -12,6 +12,13 @@ import CancelarReservaDialog from '../components/CancelarReservaDialog';
 interface ErrorBackend {
     mensaje?: string;
     error?: string;
+    codigo?: string;
+    recibo?: {
+        recibo_id: number;
+        estado_recibo: string;
+        total: number;
+        saldo_pendiente: number;
+    };
 }
 
 const obtenerMensajeError = (
@@ -38,6 +45,16 @@ function MisSolicitudesReserva() {
     const [cancelandoReserva, setCancelandoReserva] = useState(false);
     const [mensajeCancelacion, setMensajeCancelacion] = useState('');
     const [errorCancelacion, setErrorCancelacion] = useState('');
+    const [modalCancelacionPagada, setModalCancelacionPagada] =
+    useState<{
+        mensaje: string;
+        recibo?: {
+            recibo_id: number;
+            estado_recibo: string;
+            total: number;
+            saldo_pendiente: number;
+        };
+    } | null>(null);
 
     const puedeCancelarReserva = (estado: string) => {
         return ['SOLICITADA', 'APROBADA'].includes(estado);
@@ -47,6 +64,7 @@ function MisSolicitudesReserva() {
         setReservaSeleccionadaCancelar(reserva);
         setMensajeCancelacion('');
         setErrorCancelacion('');
+        setModalCancelacionPagada(null);
     };
 
     const cerrarDialogCancelarReserva = () => {
@@ -93,16 +111,32 @@ function MisSolicitudesReserva() {
             );
 
             setReservaSeleccionadaCancelar(null);
-        } catch (error) {
-            console.error('Error al cancelar reserva:', error);
+       } catch (error) {
+    console.error('Error al cancelar reserva:', error);
 
-            setErrorCancelacion(
-                obtenerMensajeError(
-                    error,
-                    'No se pudo cancelar la reserva'
-                )
-            );
-        } finally {
+    const axiosError = error as AxiosError<ErrorBackend>;
+    const data = axiosError.response?.data;
+
+    if (data?.codigo === 'RESERVA_CON_RECIBO_PAGADO') {
+        setReservaSeleccionadaCancelar(null);
+
+        setModalCancelacionPagada({
+            mensaje:
+                data.mensaje ||
+                'La reserva ya tiene una boleta pagada. No puede cancelarse directamente.',
+            recibo: data.recibo
+        });
+
+        return;
+    }
+
+    setErrorCancelacion(
+        obtenerMensajeError(
+            error,
+            'No se pudo cancelar la reserva'
+        )
+    );
+} finally {
             setCancelandoReserva(false);
         }
     };
@@ -340,6 +374,79 @@ function MisSolicitudesReserva() {
                     </section>
                 )}
             </main>
+
+            {modalCancelacionPagada && (
+    <div className="modal-overlay">
+        <div className="modal-cancelacion-pagada">
+            <div className="modal-cancelacion-icono">
+                !
+            </div>
+
+            <h2>No se puede cancelar directamente</h2>
+
+            <p className="modal-cancelacion-texto">
+                {modalCancelacionPagada.mensaje}
+            </p>
+
+            {modalCancelacionPagada.recibo && (
+                <div className="modal-recibo-info">
+                    <div>
+                        <span>Estado de boleta</span>
+                        <strong>
+                            {modalCancelacionPagada.recibo.estado_recibo}
+                        </strong>
+                    </div>
+
+                    <div>
+                        <span>Total registrado</span>
+                        <strong>
+                            S/{' '}
+                            {Number(
+                                modalCancelacionPagada.recibo.total
+                            ).toFixed(2)}
+                        </strong>
+                    </div>
+
+                    <div>
+                        <span>Saldo pendiente</span>
+                        <strong>
+                            S/{' '}
+                            {Number(
+                                modalCancelacionPagada.recibo.saldo_pendiente
+                            ).toFixed(2)}
+                        </strong>
+                    </div>
+                </div>
+            )}
+
+            <div className="modal-cancelacion-alerta">
+                Esta reserva ya tiene pago registrado. Para evitar descuadres
+                en boletas, pagos e ingresos, la cancelación debe ser revisada
+                por el administrador.
+            </div>
+
+            <div className="modal-cancelacion-acciones">
+                <button
+                    type="button"
+                    className="btn-secundario"
+                    onClick={() => setModalCancelacionPagada(null)}
+                >
+                    Entendido
+                </button>
+
+                <button
+                    type="button"
+                    className="btn-principal"
+                    onClick={() => {
+                        setModalCancelacionPagada(null);
+                    }}
+                >
+                    Solicitar revisión
+                </button>
+            </div>
+        </div>
+    </div>
+)}
 
             <DetalleSolicitudReservaDialog
                 abierto={detalleAbierto}

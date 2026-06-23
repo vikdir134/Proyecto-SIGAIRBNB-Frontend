@@ -212,8 +212,24 @@ export interface ResumenVettingGestionResponse {
 interface ErrorBackend {
     mensaje?: string;
     error?: string;
+    codigo?: string;
+    recibo?: {
+        recibo_id: number;
+        estado_recibo: string;
+        total: number;
+        saldo_pendiente: number;
+    };
 }
 
+export interface ErrorCancelacionReserva extends Error {
+    codigo?: string;
+    recibo?: {
+        recibo_id: number;
+        estado_recibo: string;
+        total: number;
+        saldo_pendiente: number;
+    };
+}
 const obtenerMensajeError = (
     error: unknown,
     mensajeDefault: string
@@ -259,6 +275,38 @@ export const obtenerDetalleMiSolicitud = async (
     return manejarPeticion<DetalleMiSolicitudResponse>(
         apiClient.get(`/reservas/mis-solicitudes/${reservaId}`)
     );
+};
+
+export const cancelarReservaInquilino = async (
+    reservaId: number,
+    motivo?: string
+): Promise<{
+    mensaje: string;
+    reserva: SolicitudReserva;
+    notificacion?: unknown;
+}> => {
+    try {
+        const response = await apiClient.patch(
+            `/reservas/mis-solicitudes/${reservaId}/cancelar`,
+            {
+                motivo: motivo?.trim() || null
+            }
+        );
+
+        return response.data;
+    } catch (error) {
+        const axiosError = error as AxiosError<ErrorBackend>;
+        const data = axiosError.response?.data;
+
+        const errorCancelacion = new Error(
+            data?.mensaje || data?.error || 'No se pudo cancelar la reserva.'
+        ) as ErrorCancelacionReserva;
+
+        errorCancelacion.codigo = data?.codigo;
+        errorCancelacion.recibo = data?.recibo;
+
+        throw errorCancelacion;
+    }
 };
 
 /* HU13 */
