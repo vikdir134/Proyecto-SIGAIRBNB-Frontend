@@ -4267,3 +4267,25 @@ button:disabled {
         width: 100%;
     }
 }
+
+.recibo-error-box {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #7f1d1d;
+}
+
+.recibo-error-box strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.recibo-error-box p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}

@@ -24,8 +24,8 @@ import {
     type ReciboReserva,
     type VistaPreviaRecibo
 } from '../services/reciboService';
-import ConfirmDialog from './ConfirmDialog';
 
+import ConfirmDialog from './ConfirmDialog';
 
 interface DetalleGestionReservaDialogProps {
     abierto: boolean;
@@ -39,6 +39,7 @@ function DetalleGestionReservaDialog({
     onCerrar
 }: DetalleGestionReservaDialogProps) {
     const navigate = useNavigate();
+
     const [eventos, setEventos] =
         useState<EventoReserva[]>([]);
 
@@ -67,26 +68,51 @@ function DetalleGestionReservaDialog({
 
     const [error, setError] = useState('');
     const [mensaje, setMensaje] = useState('');
+
     const [recibos, setRecibos] =
-    useState<ReciboReserva[]>([]);
+        useState<ReciboReserva[]>([]);
 
-const [procesandoRecibo, setProcesandoRecibo] =
-    useState(false);
+    const [procesandoRecibo, setProcesandoRecibo] =
+        useState(false);
 
-const [descargandoRecibo, setDescargandoRecibo] =
-    useState(false);
+    const [descargandoRecibo, setDescargandoRecibo] =
+        useState(false);
 
-const [previewRecibo, setPreviewRecibo] =
-    useState<VistaPreviaRecibo | null>(null);
+    const [previewRecibo, setPreviewRecibo] =
+        useState<VistaPreviaRecibo | null>(null);
 
-const [previewAbierto, setPreviewAbierto] =
-    useState(false);
+    const [previewAbierto, setPreviewAbierto] =
+        useState(false);
 
-const [cargandoPreviewRecibo, setCargandoPreviewRecibo] =
-    useState(false);
+    const [cargandoPreviewRecibo, setCargandoPreviewRecibo] =
+        useState(false);
+
+    const [errorBoleta, setErrorBoleta] =
+        useState('');
 
     const [accionConfirmacion, setAccionConfirmacion] =
-    useState<'aprobar' | 'rechazar' | null>(null);
+        useState<'aprobar' | 'rechazar' | null>(null);
+
+    const obtenerMensajeErrorApi = (
+        err: unknown,
+        mensajePorDefecto: string
+    ) => {
+        const errorApi = err as {
+            response?: {
+                data?: {
+                    mensaje?: string;
+                    codigo?: string;
+                };
+            };
+            message?: string;
+        };
+
+        return (
+            errorApi.response?.data?.mensaje ||
+            errorApi.message ||
+            mensajePorDefecto
+        );
+    };
 
     const formatearFecha = (
         fecha?: string | null
@@ -174,6 +200,7 @@ const [cargandoPreviewRecibo, setCargandoPreviewRecibo] =
         try {
             setCargando(true);
             setError('');
+            setErrorBoleta('');
 
             const response =
                 await obtenerEventosReservaGestion(
@@ -190,14 +217,14 @@ const [cargandoPreviewRecibo, setCargandoPreviewRecibo] =
             );
 
             const responseRecibos =
-    await listarRecibosReserva(reservaId);
+                await listarRecibosReserva(reservaId);
 
-setRecibos(responseRecibos.recibos || []);
+            setRecibos(responseRecibos.recibos || []);
         } catch (err) {
-            const mensajeError =
-                err instanceof Error
-                    ? err.message
-                    : 'Error al cargar el historial de la reserva.';
+            const mensajeError = obtenerMensajeErrorApi(
+                err,
+                'Error al cargar el historial de la reserva.'
+            );
 
             setError(mensajeError);
         } finally {
@@ -214,6 +241,7 @@ setRecibos(responseRecibos.recibos || []);
 
         setError('');
         setMensaje('');
+        setErrorBoleta('');
         setAccionConfirmacion('aprobar');
     };
 
@@ -229,17 +257,18 @@ setRecibos(responseRecibos.recibos || []);
 
         setError('');
         setMensaje('');
+        setErrorBoleta('');
         setAccionConfirmacion('rechazar');
     };
 
     const aprobarExtension = async () => {
         if (!extensionPendiente) return;
 
-    
         try {
             setProcesandoExtension(true);
             setError('');
             setMensaje('');
+            setErrorBoleta('');
 
             const response =
                 await aprobarSolicitudExtensionGestion(
@@ -254,10 +283,10 @@ setRecibos(responseRecibos.recibos || []);
 
             await cargarDetalle();
         } catch (err) {
-            const mensajeError =
-                err instanceof Error
-                    ? err.message
-                    : 'No se pudo aprobar la extensión.';
+            const mensajeError = obtenerMensajeErrorApi(
+                err,
+                'No se pudo aprobar la extensión.'
+            );
 
             setError(mensajeError);
             setAccionConfirmacion(null);
@@ -284,6 +313,7 @@ setRecibos(responseRecibos.recibos || []);
             setProcesandoExtension(true);
             setError('');
             setMensaje('');
+            setErrorBoleta('');
 
             const response =
                 await rechazarSolicitudExtensionGestion(
@@ -297,10 +327,10 @@ setRecibos(responseRecibos.recibos || []);
 
             await cargarDetalle();
         } catch (err) {
-            const mensajeError =
-                err instanceof Error
-                    ? err.message
-                    : 'No se pudo rechazar la extensión.';
+            const mensajeError = obtenerMensajeErrorApi(
+                err,
+                'No se pudo rechazar la extensión.'
+            );
 
             setError(mensajeError);
             setAccionConfirmacion(null);
@@ -309,802 +339,839 @@ setRecibos(responseRecibos.recibos || []);
         }
     };
 
-
     const puedeGenerarRecibo = () => {
-    if (!reserva) return false;
+        if (!reserva) return false;
 
-    const estadosPermitidos = [
-        'APROBADA',
-        'ACTIVA',
-        'FINALIZADA'
-    ];
+        const estadosPermitidos = [
+            'APROBADA',
+            'ACTIVA',
+            'FINALIZADA'
+        ];
 
-    return (
-        estadosPermitidos.includes(
-            reserva.estado_reserva
-        ) && recibos.length === 0
-    );
-};
+        return (
+            estadosPermitidos.includes(
+                reserva.estado_reserva
+            ) && recibos.length === 0
+        );
+    };
 
-const abrirPreviewBoletaDigital = async () => {
-    if (!reservaId) return;
+    const abrirPreviewBoletaDigital = async () => {
+        if (!reservaId) return;
 
-    try {
-        setCargandoPreviewRecibo(true);
-        setError('');
-        setMensaje('');
+        try {
+            setCargandoPreviewRecibo(true);
+            setError('');
+            setMensaje('');
+            setErrorBoleta('');
 
-        const response =
-            await previsualizarReciboReservaGestion(
-                reservaId
+            const response =
+                await previsualizarReciboReservaGestion(
+                    reservaId
+                );
+
+            setPreviewRecibo({
+                reserva: response.reserva,
+                conceptos: response.conceptos,
+                subtotal: response.subtotal,
+                igv_total: response.igv_total,
+                total: response.total,
+                dias_reserva: response.dias_reserva,
+                fecha_vencimiento:
+                    response.fecha_vencimiento
+            });
+
+            setPreviewAbierto(true);
+        } catch (err) {
+            const mensajeError = obtenerMensajeErrorApi(
+                err,
+                'No se pudo generar la vista previa de la boleta.'
             );
 
-        setPreviewRecibo({
-            reserva: response.reserva,
-            conceptos: response.conceptos,
-            subtotal: response.subtotal,
-            igv_total: response.igv_total,
-            total: response.total,
-            dias_reserva: response.dias_reserva,
-            fecha_vencimiento:
-                response.fecha_vencimiento
-        });
+            setPreviewAbierto(false);
+            setPreviewRecibo(null);
+            setErrorBoleta(mensajeError);
+        } finally {
+            setCargandoPreviewRecibo(false);
+        }
+    };
 
-        setPreviewAbierto(true);
-    } catch (err) {
-        const mensajeError =
-            err instanceof Error
-                ? err.message
-                : 'No se pudo generar la vista previa de la boleta.';
+    const cerrarPreviewBoletaDigital = () => {
+        if (procesandoRecibo) return;
 
-        setError(mensajeError);
-    } finally {
-        setCargandoPreviewRecibo(false);
-    }
-};
-
-const cerrarPreviewBoletaDigital = () => {
-    if (procesandoRecibo) return;
-
-    setPreviewAbierto(false);
-    setPreviewRecibo(null);
-};
-
-const confirmarEmisionBoletaDigital = async () => {
-    if (!reservaId) return;
-
-    try {
-        setProcesandoRecibo(true);
-        setError('');
-        setMensaje('');
-
-        const response =
-            await generarReciboReservaGestion(
-                reservaId,
-                'Boleta digital emitida luego de revisión de conceptos de cobro.'
-            );
-
-        setMensaje(response.mensaje);
         setPreviewAbierto(false);
         setPreviewRecibo(null);
+        setErrorBoleta('');
+    };
 
-        await cargarDetalle();
-    } catch (err) {
-        const mensajeError =
-            err instanceof Error
-                ? err.message
-                : 'No se pudo generar la boleta digital.';
+    const confirmarEmisionBoletaDigital = async () => {
+        if (!reservaId) return;
 
-        setError(mensajeError);
-    } finally {
-        setProcesandoRecibo(false);
-    }
-};
+        try {
+            setProcesandoRecibo(true);
+            setError('');
+            setMensaje('');
+            setErrorBoleta('');
 
-const descargarBoletaDigital = async (
-    reciboId: number
-) => {
-    try {
-        setDescargandoRecibo(true);
+            const response =
+                await generarReciboReservaGestion(
+                    reservaId,
+                    'Boleta digital emitida luego de revisión de conceptos de cobro.'
+                );
+
+            setMensaje(response.mensaje);
+            setPreviewAbierto(false);
+            setPreviewRecibo(null);
+            setErrorBoleta('');
+
+            await cargarDetalle();
+        } catch (err) {
+            const mensajeError = obtenerMensajeErrorApi(
+                err,
+                'No se pudo generar la boleta digital.'
+            );
+
+            setErrorBoleta(mensajeError);
+        } finally {
+            setProcesandoRecibo(false);
+        }
+    };
+
+    const descargarBoletaDigital = async (
+        reciboId: number
+    ) => {
+        try {
+            setDescargandoRecibo(true);
+            setError('');
+            setMensaje('');
+            setErrorBoleta('');
+
+            await descargarReciboPdf(reciboId);
+        } catch (err) {
+            const mensajeError = obtenerMensajeErrorApi(
+                err,
+                'No se pudo descargar la boleta digital.'
+            );
+
+            setError(mensajeError);
+        } finally {
+            setDescargandoRecibo(false);
+        }
+    };
+
+    const verBoletaDigital = async (
+        reciboId: number
+    ) => {
+        try {
+            setDescargandoRecibo(true);
+            setError('');
+            setMensaje('');
+            setErrorBoleta('');
+
+            await verReciboPdf(reciboId);
+        } catch (err) {
+            const mensajeError = obtenerMensajeErrorApi(
+                err,
+                'No se pudo abrir la boleta digital.'
+            );
+
+            setError(mensajeError);
+        } finally {
+            setDescargandoRecibo(false);
+        }
+    };
+
+    const irAGestionConceptosCobro = () => {
+        setPreviewAbierto(false);
+        setPreviewRecibo(null);
+        cerrar();
+
+        navigate('/gestion/conceptos-cobro');
+    };
+
+    const cerrar = () => {
+        if (
+            procesandoExtension ||
+            procesandoRecibo ||
+            descargandoRecibo ||
+            cargandoPreviewRecibo
+        ) return;
+
+        setReserva(null);
+        setEventos([]);
+        setExtensionPendiente(null);
+        setComentarioDecision('');
+        setAccionConfirmacion(null);
+        setRecibos([]);
+        setPreviewRecibo(null);
+        setPreviewAbierto(false);
         setError('');
         setMensaje('');
+        setErrorBoleta('');
 
-        await descargarReciboPdf(reciboId);
-    } catch (err) {
-        const mensajeError =
-            err instanceof Error
-                ? err.message
-                : 'No se pudo descargar la boleta digital.';
-
-        setError(mensajeError);
-    } finally {
-        setDescargandoRecibo(false);
-    }
-};
-
-const verBoletaDigital = async (
-    reciboId: number
-) => {
-    try {
-        setDescargandoRecibo(true);
-        setError('');
-        setMensaje('');
-
-        await verReciboPdf(reciboId);
-    } catch (err) {
-        const mensajeError =
-            err instanceof Error
-                ? err.message
-                : 'No se pudo abrir la boleta digital.';
-
-        setError(mensajeError);
-    } finally {
-        setDescargandoRecibo(false);
-    }
-};
-
-const irAGestionConceptosCobro = () => {
-    setPreviewAbierto(false);
-    setPreviewRecibo(null);
-    cerrar();
-
-    navigate('/gestion/conceptos-cobro');
-};
-
-
-const cerrar = () => {
-    if (
-        procesandoExtension ||
-        procesandoRecibo ||
-        descargandoRecibo ||
-        cargandoPreviewRecibo
-    ) return;
-
-    setReserva(null);
-    setEventos([]);
-    setExtensionPendiente(null);
-    setComentarioDecision('');
-    setAccionConfirmacion(null);
-    setRecibos([]);
-    setPreviewRecibo(null);
-    setPreviewAbierto(false);
-    setError('');
-    setMensaje('');
-
-    onCerrar();
-};
+        onCerrar();
+    };
 
     if (!abierto) return null;
 
     return (
         <>
-        <div className="detalle-solicitud-overlay">
-            <div className="detalle-solicitud-dialog">
-                <div className="detalle-solicitud-header">
-                    <div>
-                        <p className="detalle-solicitud-subtitle">
-                            Historial de gestión
-                        </p>
-
-                        <h2>
-                            Reserva #
-                            {reserva?.reserva_id ||
-                                reservaId}
-                        </h2>
-                    </div>
-
-                    <button
-                        type="button"
-                        className="detalle-solicitud-close"
-                        onClick={cerrar}
-disabled={
-    procesandoExtension ||
-    procesandoRecibo ||
-    descargandoRecibo ||
-    cargandoPreviewRecibo
-}                  >
-                        ×
-                    </button>
-                </div>
-
-                {cargando && (
-                    <div className="gestion-card gestion-empty-card">
-                        Cargando historial...
-                    </div>
-                )}
-
-                {error && (
-                    <div className="gestion-alert gestion-alert-error">
-                        {error}
-                    </div>
-                )}
-
-                {mensaje && (
-                    <div className="extension-alert extension-alert-success">
-                        {mensaje}
-                    </div>
-                )}
-
-                {!cargando && reserva && (
-                    <section className="detalle-solicitud-card">
-                        <h3>Resumen de la reserva</h3>
-
-                        <div className="detalle-solicitud-grid">
-                            <p>
-                                <strong>Inmueble:</strong>{' '}
-                                {reserva.nombre_inmueble}
-                            </p>
-
-                            <p>
-                                <strong>Tipo:</strong>{' '}
-                                {reserva.tipo_inmueble}
-                            </p>
-
-                            <p>
-                                <strong>Estado:</strong>{' '}
-                                {reserva.estado_reserva}
-                            </p>
-
-                            <p>
-                                <strong>Código:</strong>{' '}
-                                {reserva.codigo_inmueble}
-                            </p>
-
-                            <p>
-                                <strong>Fecha inicial:</strong>{' '}
-                                {formatearFecha(
-                                    reserva.fecha_inicio
-                                )}
-                            </p>
-
-                            <p>
-                                <strong>Fecha final:</strong>{' '}
-                                {formatearFecha(
-                                    reserva.fecha_fin
-                                )}
-                            </p>
-                        </div>
-                    </section>
-                )}
-
-                {!cargando && reserva && (
-    <section className="detalle-solicitud-card">
-        <div className="gestion-extension-header">
-            <div>
-                <p className="detalle-solicitud-subtitle">
-                    Documento de cobro
-                </p>
-
-                <h3>Boleta digital</h3>
-            </div>
-
-            {recibos.length > 0 && (
-                <span className="gestion-extension-badge">
-                    EMITIDA
-                </span>
-            )}
-        </div>
-
-        {recibos.length === 0 ? (
-            <>
-                <p>
-                    Esta reserva todavía no tiene una boleta
-                    digital generada.
-                </p>
-
-                <div className="gestion-extension-actions">
-                    <button
-                        type="button"
-                        className="extension-button-primary"
-                        onClick={abrirPreviewBoletaDigital}
-                            disabled={
-                            !puedeGenerarRecibo() ||
-                            procesandoRecibo ||
-                            procesandoExtension||
-                            cargandoPreviewRecibo
-                        }
-                    >
-                        {cargandoPreviewRecibo
-    ? 'Cargando...'
-    : 'Revisar boleta'}
-                    </button>
-                </div>
-
-                {!puedeGenerarRecibo() && (
-                    <small className="extension-character-count">
-                        Solo se puede generar boleta para
-                        reservas aprobadas, activas o finalizadas.
-                    </small>
-                )}
-            </>
-        ) : (
-            <div className="detalle-solicitud-timeline">
-                {recibos.map((recibo) => (
-                    <div
-                        key={recibo.recibo_id}
-                        className="detalle-solicitud-evento evento-nota"
-                    >
-                        <div className="detalle-solicitud-dot" />
-
+            <div className="detalle-solicitud-overlay">
+                <div className="detalle-solicitud-dialog">
+                    <div className="detalle-solicitud-header">
                         <div>
-                            <strong>
-                                Boleta digital {obtenerNumeroVisualRecibo(recibo)}
-                            </strong>
-
-                            <p>
-                                Total:{' '}
-                                {recibo.moneda === 'USD'
-                                    ? '$'
-                                    : 'S/'}{' '}
-                                {Number(
-                                    recibo.total || 0
-                                ).toFixed(2)}
-                                {' · '}
-                                Estado: {recibo.estado_recibo}
+                            <p className="detalle-solicitud-subtitle">
+                                Historial de gestión
                             </p>
 
-                            <small>
-                                Periodo: {recibo.periodo_mes}/
-                                {recibo.periodo_anio}
-                            </small>
-
-                            <div className="gestion-extension-actions">
-                               <button
-                            type="button"
-                            className="extension-button-secondary"
-                            onClick={() =>
-                                verBoletaDigital(
-                                    recibo.recibo_id
-                                )
-                            }
-                            disabled={
-                                descargandoRecibo ||
-                                procesandoRecibo
-                            }
-                        >
-                            Ver PDF
-                        </button>
+                            <h2>
+                                Reserva #
+                                {reserva?.reserva_id ||
+                                    reservaId}
+                            </h2>
+                        </div>
 
                         <button
                             type="button"
-                            className="extension-button-primary"
-                            onClick={() =>
-                                descargarBoletaDigital(
-                                    recibo.recibo_id
-                                )
-                            }
+                            className="detalle-solicitud-close"
+                            onClick={cerrar}
                             disabled={
+                                procesandoExtension ||
+                                procesandoRecibo ||
                                 descargandoRecibo ||
-                                procesandoRecibo
+                                cargandoPreviewRecibo
                             }
                         >
-                            {descargandoRecibo
-                                ? 'Descargando...'
-                                : 'Descargar PDF'}
+                            ×
                         </button>
-                            </div>
-                        </div>
                     </div>
-                ))}
-            </div>
-        )}
-    </section>
-)}
 
-                {!cargando && extensionPendiente && (
-                    <section className="detalle-solicitud-card gestion-extension-card">
-                        <div className="gestion-extension-header">
-                            <div>
-                                <p className="detalle-solicitud-subtitle">
-                                    Acción pendiente
+                    {cargando && (
+                        <div className="gestion-card gestion-empty-card">
+                            Cargando historial...
+                        </div>
+                    )}
+
+                    {error && (
+                        <div className="gestion-alert gestion-alert-error">
+                            {error}
+                        </div>
+                    )}
+
+                    {mensaje && (
+                        <div className="extension-alert extension-alert-success">
+                            {mensaje}
+                        </div>
+                    )}
+
+                    {!cargando && reserva && (
+                        <section className="detalle-solicitud-card">
+                            <h3>Resumen de la reserva</h3>
+
+                            <div className="detalle-solicitud-grid">
+                                <p>
+                                    <strong>Inmueble:</strong>{' '}
+                                    {reserva.nombre_inmueble}
                                 </p>
 
-                                <h3>
-                                    Solicitud de extensión
-                                </h3>
+                                <p>
+                                    <strong>Tipo:</strong>{' '}
+                                    {reserva.tipo_inmueble}
+                                </p>
+
+                                <p>
+                                    <strong>Estado:</strong>{' '}
+                                    {reserva.estado_reserva}
+                                </p>
+
+                                <p>
+                                    <strong>Código:</strong>{' '}
+                                    {reserva.codigo_inmueble}
+                                </p>
+
+                                <p>
+                                    <strong>Fecha inicial:</strong>{' '}
+                                    {formatearFecha(
+                                        reserva.fecha_inicio
+                                    )}
+                                </p>
+
+                                <p>
+                                    <strong>Fecha final:</strong>{' '}
+                                    {formatearFecha(
+                                        reserva.fecha_fin
+                                    )}
+                                </p>
+                            </div>
+                        </section>
+                    )}
+
+                    {!cargando && reserva && (
+                        <section className="detalle-solicitud-card">
+                            <div className="gestion-extension-header">
+                                <div>
+                                    <p className="detalle-solicitud-subtitle">
+                                        Documento de cobro
+                                    </p>
+
+                                    <h3>Boleta digital</h3>
+                                </div>
+
+                                {recibos.length > 0 && (
+                                    <span className="gestion-extension-badge">
+                                        EMITIDA
+                                    </span>
+                                )}
                             </div>
 
-                            <span className="gestion-extension-badge">
-                                PENDIENTE
-                            </span>
+                            {recibos.length === 0 ? (
+                                <>
+                                    <p>
+                                        Esta reserva todavía no tiene una boleta
+                                        digital generada.
+                                    </p>
+
+                                    <div className="gestion-extension-actions">
+                                        <button
+                                            type="button"
+                                            className="extension-button-primary"
+                                            onClick={abrirPreviewBoletaDigital}
+                                            disabled={
+                                                !puedeGenerarRecibo() ||
+                                                procesandoRecibo ||
+                                                procesandoExtension ||
+                                                cargandoPreviewRecibo
+                                            }
+                                        >
+                                            {cargandoPreviewRecibo
+                                                ? 'Cargando...'
+                                                : 'Revisar boleta'}
+                                        </button>
+                                    </div>
+
+                                    {errorBoleta && (
+                                        <div className="recibo-error-box">
+                                            <strong>
+                                                No se puede generar la boleta
+                                            </strong>
+
+                                            <p>{errorBoleta}</p>
+                                        </div>
+                                    )}
+
+                                    {!puedeGenerarRecibo() && (
+                                        <small className="extension-character-count">
+                                            Solo se puede generar boleta para
+                                            reservas aprobadas, activas o
+                                            finalizadas.
+                                        </small>
+                                    )}
+                                </>
+                            ) : (
+                                <div className="detalle-solicitud-timeline">
+                                    {recibos.map((recibo) => (
+                                        <div
+                                            key={recibo.recibo_id}
+                                            className="detalle-solicitud-evento evento-nota"
+                                        >
+                                            <div className="detalle-solicitud-dot" />
+
+                                            <div>
+                                                <strong>
+                                                    Boleta digital{' '}
+                                                    {obtenerNumeroVisualRecibo(
+                                                        recibo
+                                                    )}
+                                                </strong>
+
+                                                <p>
+                                                    Total:{' '}
+                                                    {recibo.moneda === 'USD'
+                                                        ? '$'
+                                                        : 'S/'}{' '}
+                                                    {Number(
+                                                        recibo.total || 0
+                                                    ).toFixed(2)}
+                                                    {' · '}
+                                                    Estado:{' '}
+                                                    {recibo.estado_recibo}
+                                                </p>
+
+                                                <small>
+                                                    Periodo:{' '}
+                                                    {recibo.periodo_mes}/
+                                                    {recibo.periodo_anio}
+                                                </small>
+
+                                                <div className="gestion-extension-actions">
+                                                    <button
+                                                        type="button"
+                                                        className="extension-button-secondary"
+                                                        onClick={() =>
+                                                            verBoletaDigital(
+                                                                recibo.recibo_id
+                                                            )
+                                                        }
+                                                        disabled={
+                                                            descargandoRecibo ||
+                                                            procesandoRecibo
+                                                        }
+                                                    >
+                                                        Ver PDF
+                                                    </button>
+
+                                                    <button
+                                                        type="button"
+                                                        className="extension-button-primary"
+                                                        onClick={() =>
+                                                            descargarBoletaDigital(
+                                                                recibo.recibo_id
+                                                            )
+                                                        }
+                                                        disabled={
+                                                            descargandoRecibo ||
+                                                            procesandoRecibo
+                                                        }
+                                                    >
+                                                        {descargandoRecibo
+                                                            ? 'Descargando...'
+                                                            : 'Descargar PDF'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </section>
+                    )}
+
+                    {!cargando && extensionPendiente && (
+                        <section className="detalle-solicitud-card gestion-extension-card">
+                            <div className="gestion-extension-header">
+                                <div>
+                                    <p className="detalle-solicitud-subtitle">
+                                        Acción pendiente
+                                    </p>
+
+                                    <h3>
+                                        Solicitud de extensión
+                                    </h3>
+                                </div>
+
+                                <span className="gestion-extension-badge">
+                                    PENDIENTE
+                                </span>
+                            </div>
+
+                            <div className="detalle-solicitud-grid">
+                                <p>
+                                    <strong>
+                                        Fecha final actual:
+                                    </strong>{' '}
+                                    {formatearFecha(
+                                        extensionPendiente
+                                            .fecha_fin_actual
+                                    )}
+                                </p>
+
+                                <p>
+                                    <strong>
+                                        Nueva fecha solicitada:
+                                    </strong>{' '}
+                                    {formatearFecha(
+                                        extensionPendiente
+                                            .nueva_fecha_fin
+                                    )}
+                                </p>
+
+                                <p>
+                                    <strong>
+                                        Fecha de solicitud:
+                                    </strong>{' '}
+                                    {formatearFechaHora(
+                                        extensionPendiente
+                                            .fecha_solicitud
+                                    )}
+                                </p>
+
+                                <p>
+                                    <strong>
+                                        Solicitante:
+                                    </strong>{' '}
+                                    {extensionPendiente
+                                        .nombres_inquilino ||
+                                        'Inquilino'}{' '}
+                                    {extensionPendiente
+                                        .apellidos_inquilino ||
+                                        ''}
+                                </p>
+                            </div>
+
+                            <div className="gestion-extension-motivo">
+                                <strong>
+                                    Motivo de la extensión
+                                </strong>
+
+                                <p>
+                                    {extensionPendiente.motivo ||
+                                        'El inquilino no indicó un motivo.'}
+                                </p>
+                            </div>
+
+                            <div className="extension-form-group">
+                                <label htmlFor="comentario_extension">
+                                    Comentario de decisión
+                                </label>
+
+                                <textarea
+                                    id="comentario_extension"
+                                    rows={3}
+                                    maxLength={500}
+                                    value={comentarioDecision}
+                                    onChange={(event) =>
+                                        setComentarioDecision(
+                                            event.target.value
+                                        )
+                                    }
+                                    placeholder="Escribe un comentario. Es obligatorio para rechazar."
+                                    disabled={
+                                        procesandoExtension
+                                    }
+                                />
+
+                                <small className="extension-character-count">
+                                    {comentarioDecision.length}
+                                    /500
+                                </small>
+                            </div>
+
+                            <div className="gestion-extension-actions">
+                                <button
+                                    type="button"
+                                    className="gestion-extension-reject"
+                                    onClick={solicitarConfirmacionRechazo}
+                                    disabled={procesandoExtension}
+                                >
+                                    Rechazar extensión
+                                </button>
+
+                                <button
+                                    type="button"
+                                    className="extension-button-primary"
+                                    onClick={solicitarConfirmacionAprobacion}
+                                    disabled={procesandoExtension}
+                                >
+                                    Aprobar extensión
+                                </button>
+                            </div>
+                        </section>
+                    )}
+
+                    {!cargando && !extensionPendiente && reserva && (
+                        <div className="extension-alert extension-alert-success">
+                            No existen solicitudes de extensión
+                            pendientes para esta reserva.
+                        </div>
+                    )}
+
+                    {!cargando && (
+                        <section className="detalle-solicitud-card">
+                            <h3>Eventos registrados</h3>
+
+                            {eventos.length === 0 ? (
+                                <p>
+                                    No hay eventos registrados.
+                                </p>
+                            ) : (
+                                <div className="detalle-solicitud-timeline">
+                                    {eventos.map((evento) => (
+                                        <div
+                                            key={
+                                                evento.reserva_evento_id
+                                            }
+                                            className={`detalle-solicitud-evento evento-${evento.tipo_evento.toLowerCase()}`}
+                                        >
+                                            <div className="detalle-solicitud-dot" />
+
+                                            <div>
+                                                <strong>
+                                                    {textoEvento(
+                                                        evento.tipo_evento,
+                                                        evento.descripcion
+                                                    )}
+                                                </strong>
+
+                                                <p>
+                                                    {evento.descripcion ||
+                                                        'Evento registrado.'}
+                                                </p>
+
+                                                <small>
+                                                    {formatearFechaHora(
+                                                        evento.fecha_evento
+                                                    )}
+                                                </small>
+
+                                                {(evento.nombres_usuario ||
+                                                    evento.correo_usuario) && (
+                                                    <small>
+                                                        Registrado por:{' '}
+                                                        {evento.nombres_usuario ||
+                                                            'Usuario'}{' '}
+                                                        {evento.apellidos_usuario ||
+                                                            ''}
+                                                        {evento.correo_usuario
+                                                            ? ` (${evento.correo_usuario})`
+                                                            : ''}
+                                                    </small>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </section>
+                    )}
+                </div>
+            </div>
+
+            {previewAbierto && previewRecibo && (
+                <div className="recibo-preview-overlay">
+                    <div className="recibo-preview-modal">
+                        <div className="recibo-preview-header">
+                            <div>
+                                <p className="detalle-solicitud-subtitle">
+                                    Revisión previa
+                                </p>
+
+                                <h3>Boleta digital</h3>
+                            </div>
+
+                            <button
+                                type="button"
+                                className="detalle-solicitud-close"
+                                onClick={cerrarPreviewBoletaDigital}
+                                disabled={procesandoRecibo}
+                            >
+                                ×
+                            </button>
                         </div>
 
-                        <div className="detalle-solicitud-grid">
+                        <div className="recibo-preview-info">
                             <p>
-                                <strong>
-                                    Fecha final actual:
-                                </strong>{' '}
-                                {formatearFecha(
-                                    extensionPendiente
-                                        .fecha_fin_actual
-                                )}
+                                Antes de emitir la boleta, revisa los conceptos
+                                de cobro que se aplicarán a esta reserva. Estos
+                                conceptos se obtienen desde la configuración de
+                                Conceptos de cobro.
                             </p>
 
-                            <p>
-                                <strong>
-                                    Nueva fecha solicitada:
-                                </strong>{' '}
-                                {formatearFecha(
-                                    extensionPendiente
-                                        .nueva_fecha_fin
-                                )}
-                            </p>
-
-                            <p>
-                                <strong>
-                                    Fecha de solicitud:
-                                </strong>{' '}
-                                {formatearFechaHora(
-                                    extensionPendiente
-                                        .fecha_solicitud
-                                )}
-                            </p>
-
-                            <p>
-                                <strong>
-                                    Solicitante:
-                                </strong>{' '}
-                                {extensionPendiente
-                                    .nombres_inquilino ||
-                                    'Inquilino'}{' '}
-                                {extensionPendiente
-                                    .apellidos_inquilino ||
-                                    ''}
-                            </p>
-                        </div>
-
-                        <div className="gestion-extension-motivo">
-                            <strong>
-                                Motivo de la extensión
-                            </strong>
-
-                            <p>
-                                {extensionPendiente.motivo ||
-                                    'El inquilino no indicó un motivo.'}
-                            </p>
-                        </div>
-
-                        <div className="extension-form-group">
-                            <label htmlFor="comentario_extension">
-                                Comentario de decisión
-                            </label>
-
-                            <textarea
-                                id="comentario_extension"
-                                rows={3}
-                                maxLength={500}
-                                value={comentarioDecision}
-                                onChange={(event) =>
-                                    setComentarioDecision(
-                                        event.target.value
-                                    )
-                                }
-                                placeholder="Escribe un comentario. Es obligatorio para rechazar."
-                                disabled={
-                                    procesandoExtension
-                                }
-                            />
-
-                            <small className="extension-character-count">
-                                {comentarioDecision.length}
-                                /500
+                            <small>
+                                Días de reserva:{' '}
+                                {previewRecibo.dias_reserva}
+                                {' · '}
+                                Vencimiento:{' '}
+                                {new Date(
+                                    previewRecibo.fecha_vencimiento
+                                ).toLocaleDateString('es-PE')}
                             </small>
                         </div>
 
-                        <div className="gestion-extension-actions">
-                            <button
-                                type="button"
-                                className="gestion-extension-reject"
-                                onClick={solicitarConfirmacionRechazo}
-                                disabled={procesandoExtension}
-                            >
-                                Rechazar extensión
-                            </button>
+                        {errorBoleta && (
+                            <div className="recibo-error-box">
+                                <strong>
+                                    No se pudo emitir la boleta
+                                </strong>
 
-                            <button
-                                type="button"
-                                className="extension-button-primary"
-                                onClick={solicitarConfirmacionAprobacion}
-                                disabled={procesandoExtension}
-                            >
-                                Aprobar extensión
-                            </button>
-                        </div>
-                    </section>
-                )}
-
-                {!cargando && !extensionPendiente && reserva && (
-                    <div className="extension-alert extension-alert-success">
-                        No existen solicitudes de extensión
-                        pendientes para esta reserva.
-                    </div>
-                )}
-
-                {!cargando && (
-                    <section className="detalle-solicitud-card">
-                        <h3>Eventos registrados</h3>
-
-                        {eventos.length === 0 ? (
-                            <p>
-                                No hay eventos registrados.
-                            </p>
-                        ) : (
-                            <div className="detalle-solicitud-timeline">
-                                {eventos.map((evento) => (
-                                    <div
-                                        key={
-                                            evento.reserva_evento_id
-                                        }
-                                        className={`detalle-solicitud-evento evento-${evento.tipo_evento.toLowerCase()}`}
-                                    >
-                                        <div className="detalle-solicitud-dot" />
-
-                                        <div>
-                                            <strong>
-                                                {textoEvento(
-                                                    evento.tipo_evento,
-                                                    evento.descripcion
-                                                )}
-                                            </strong>
-
-                                            <p>
-                                                {evento.descripcion ||
-                                                    'Evento registrado.'}
-                                            </p>
-
-                                            <small>
-                                                {formatearFechaHora(
-                                                    evento.fecha_evento
-                                                )}
-                                            </small>
-
-                                            {(evento.nombres_usuario ||
-                                                evento.correo_usuario) && (
-                                                <small>
-                                                    Registrado por:{' '}
-                                                    {evento.nombres_usuario ||
-                                                        'Usuario'}{' '}
-                                                    {evento.apellidos_usuario ||
-                                                        ''}
-                                                    {evento.correo_usuario
-                                                        ? ` (${evento.correo_usuario})`
-                                                        : ''}
-                                                </small>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
+                                <p>{errorBoleta}</p>
                             </div>
                         )}
-                    </section>
-                )}
-            </div>
-        </div>
-{previewAbierto && previewRecibo && (
-    <div className="recibo-preview-overlay">
-        <div className="recibo-preview-modal">
-           <div className="recibo-preview-header">
-                <div>
-                    <p className="detalle-solicitud-subtitle">
-                        Revisión previa
-                    </p>
 
-                    <h3>Boleta digital</h3>
+                        <div className="recibo-preview-table-wrapper">
+                            <table className="recibo-preview-table">
+                                <thead>
+                                    <tr>
+                                        <th>Concepto</th>
+                                        <th>Cant.</th>
+                                        <th>Subtotal</th>
+                                        <th>IGV</th>
+                                        <th>Total</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    {previewRecibo.conceptos.map(
+                                        (concepto) => (
+                                            <tr
+                                                key={
+                                                    concepto.concepto_cobro_id
+                                                }
+                                            >
+                                                <td>
+                                                    <strong>
+                                                        {concepto.descripcion}
+                                                    </strong>
+
+                                                    <span>
+                                                        {concepto.codigo}
+                                                        {concepto.obligatorio
+                                                            ? ' · Obligatorio'
+                                                            : ' · Concepto adicional'}
+                                                    </span>
+                                                </td>
+
+                                                <td>
+                                                    {Number(
+                                                        concepto.cantidad
+                                                    ).toFixed(2)}
+                                                </td>
+
+                                                <td>
+                                                    S/{' '}
+                                                    {Number(
+                                                        concepto.importe
+                                                    ).toFixed(2)}
+                                                </td>
+
+                                                <td>
+                                                    S/{' '}
+                                                    {Number(
+                                                        concepto.igv
+                                                    ).toFixed(2)}
+                                                </td>
+
+                                                <td>
+                                                    <strong>
+                                                        S/{' '}
+                                                        {Number(
+                                                            concepto.total_linea
+                                                        ).toFixed(2)}
+                                                    </strong>
+                                                </td>
+                                            </tr>
+                                        )
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div className="recibo-preview-note">
+                            <strong>Nota:</strong> La renta de reserva es
+                            obligatoria y se calcula desde la reserva. Los
+                            conceptos adicionales se toman desde la configuración
+                            activa de Conceptos de cobro.
+                        </div>
+
+                        <div className="recibo-preview-summary">
+                            <div>
+                                <span>Subtotal</span>
+
+                                <strong>
+                                    S/{' '}
+                                    {Number(
+                                        previewRecibo.subtotal
+                                    ).toFixed(2)}
+                                </strong>
+                            </div>
+
+                            <div>
+                                <span>IGV 18%</span>
+
+                                <strong>
+                                    S/{' '}
+                                    {Number(
+                                        previewRecibo.igv_total
+                                    ).toFixed(2)}
+                                </strong>
+                            </div>
+
+                            <div className="recibo-preview-total">
+                                <span>Total</span>
+
+                                <strong>
+                                    S/{' '}
+                                    {Number(
+                                        previewRecibo.total
+                                    ).toFixed(2)}
+                                </strong>
+                            </div>
+                        </div>
+
+                        <div className="recibo-preview-actions">
+                            <button
+                                type="button"
+                                className="recibo-preview-button-secondary"
+                                onClick={cerrarPreviewBoletaDigital}
+                                disabled={procesandoRecibo}
+                            >
+                                Cancelar
+                            </button>
+
+                            <button
+                                type="button"
+                                className="recibo-preview-button-secondary"
+                                onClick={irAGestionConceptosCobro}
+                                disabled={procesandoRecibo}
+                            >
+                                Gestionar conceptos
+                            </button>
+
+                            <button
+                                type="button"
+                                className="recibo-preview-button-primary"
+                                onClick={confirmarEmisionBoletaDigital}
+                                disabled={procesandoRecibo}
+                            >
+                                {procesandoRecibo
+                                    ? 'Emitiendo...'
+                                    : 'Confirmar emisión'}
+                            </button>
+                        </div>
+                    </div>
                 </div>
+            )}
 
-                <button
-                    type="button"
-                    className="detalle-solicitud-close"
-                    onClick={cerrarPreviewBoletaDigital}
-                    disabled={procesandoRecibo}
-                >
-                    ×
-                </button>
-            </div>
-
-            <div className="recibo-preview-info">
-                <p>
-    Antes de emitir la boleta, revisa los conceptos de cobro
-    que se aplicarán a esta reserva. Estos conceptos se obtienen
-    desde la configuración de Conceptos de cobro.
-</p>
-
-                <small>
-                    Días de reserva:{' '}
-                    {previewRecibo.dias_reserva}
-                    {' · '}
-                    Vencimiento:{' '}
-                    {new Date(
-                        previewRecibo.fecha_vencimiento
-                    ).toLocaleDateString('es-PE')}
-                </small>
-            </div>
-
-            <div className="recibo-preview-table-wrapper">
-                <table className="recibo-preview-table">
-                    <thead>
-                        <tr>
-                            <th>Concepto</th>
-                            <th>Cant.</th>
-                            <th>Subtotal</th>
-                            <th>IGV</th>
-                            <th>Total</th>
-                        </tr>
-                    </thead>
-
-                    <tbody>
-                        {previewRecibo.conceptos.map(
-                            (concepto) => (
-                                <tr
-                                    key={
-                                        concepto.concepto_cobro_id
-                                    }
-                                >
-                                    <td>
-                                        <strong>
-                                            {concepto.descripcion}
-                                        </strong>
-
-                                        <span>
-                                            {concepto.codigo}
-                                            {concepto.obligatorio
-                                                ? ' · Obligatorio'
-                                                : ' · Concepto adicional'}
-                                        </span>
-                                    </td>
-
-                                    <td>
-                                        {Number(
-                                            concepto.cantidad
-                                        ).toFixed(2)}
-                                    </td>
-
-                                    <td>
-                                        S/{' '}
-                                        {Number(
-                                            concepto.importe
-                                        ).toFixed(2)}
-                                    </td>
-
-                                    <td>
-                                        S/{' '}
-                                        {Number(
-                                            concepto.igv
-                                        ).toFixed(2)}
-                                    </td>
-
-                                    <td>
-                                        <strong>
-                                            S/{' '}
-                                            {Number(
-                                                concepto.total_linea
-                                            ).toFixed(2)}
-                                        </strong>
-                                    </td>
-                                </tr>
-                            )
-                        )}
-                    </tbody>
-                </table>
-            </div>
-
-            <div className="recibo-preview-note">
-    <strong>Nota:</strong> La renta de reserva es obligatoria y
-    se calcula desde la reserva. Los conceptos adicionales se
-    toman desde la configuración activa de Conceptos de cobro.
-</div>
-
-            <div className="recibo-preview-summary">
-                <div>
-                    <span>Subtotal</span>
-
-                    <strong>
-                        S/{' '}
-                        {Number(
-                            previewRecibo.subtotal
-                        ).toFixed(2)}
-                    </strong>
-                </div>
-
-                <div>
-                    <span>IGV 18%</span>
-
-                    <strong>
-                        S/{' '}
-                        {Number(
-                            previewRecibo.igv_total
-                        ).toFixed(2)}
-                    </strong>
-                </div>
-
-                <div className="recibo-preview-total">
-                    <span>Total</span>
-
-                    <strong>
-                        S/{' '}
-                        {Number(
-                            previewRecibo.total
-                        ).toFixed(2)}
-                    </strong>
-                </div>
-            </div>
-
-           <div className="recibo-preview-actions">
-    <button
-    type="button"
-    className="recibo-preview-button-secondary"
-    onClick={cerrarPreviewBoletaDigital}
-    disabled={procesandoRecibo}
->
-    Cancelar
-</button>
-
-<button
-    type="button"
-    className="recibo-preview-button-secondary"
-    onClick={irAGestionConceptosCobro}
-    disabled={procesandoRecibo}
->
-    Gestionar conceptos
-</button>
-
-<button
-    type="button"
-    className="recibo-preview-button-primary"
-    onClick={confirmarEmisionBoletaDigital}
-    disabled={procesandoRecibo}
->
-    {procesandoRecibo
-        ? 'Emitiendo...'
-        : 'Confirmar emisión'}
-</button>
-</div>
-        </div>
-    </div>
-)}
-
-        <ConfirmDialog
-            abierto={accionConfirmacion !== null}
-            titulo={
-                accionConfirmacion === 'aprobar'
-                    ? 'Aprobar extensión'
-                    : 'Rechazar extensión'
-            }
-            descripcion={
-                accionConfirmacion === 'aprobar'
-                    ? `¿Confirmas que deseas extender la reserva hasta el ${
-                        extensionPendiente
-                            ? formatearFecha(
-                                extensionPendiente.nueva_fecha_fin
-                            )
-                            : ''
-                    }?`
-                    : '¿Confirmas que deseas rechazar esta solicitud de extensión?'
-            }
-            textoConfirmar={
-                accionConfirmacion === 'aprobar'
-                    ? 'Aprobar extensión'
-                    : 'Rechazar extensión'
-            }
-            textoCancelar="Cancelar"
-            tipo={
-                accionConfirmacion === 'aprobar'
-                    ? 'success'
-                    : 'danger'
-            }
-            cargando={procesandoExtension}
-            onConfirmar={
-                accionConfirmacion === 'aprobar'
-                    ? aprobarExtension
-                    : rechazarExtension
-            }
-            onCerrar={() => {
-                if (!procesandoExtension) {
-                    setAccionConfirmacion(null);
+            <ConfirmDialog
+                abierto={accionConfirmacion !== null}
+                titulo={
+                    accionConfirmacion === 'aprobar'
+                        ? 'Aprobar extensión'
+                        : 'Rechazar extensión'
                 }
-            }}
-        />
-    </>
+                descripcion={
+                    accionConfirmacion === 'aprobar'
+                        ? `¿Confirmas que deseas extender la reserva hasta el ${
+                            extensionPendiente
+                                ? formatearFecha(
+                                    extensionPendiente.nueva_fecha_fin
+                                )
+                                : ''
+                        }?`
+                        : '¿Confirmas que deseas rechazar esta solicitud de extensión?'
+                }
+                textoConfirmar={
+                    accionConfirmacion === 'aprobar'
+                        ? 'Aprobar extensión'
+                        : 'Rechazar extensión'
+                }
+                textoCancelar="Cancelar"
+                tipo={
+                    accionConfirmacion === 'aprobar'
+                        ? 'success'
+                        : 'danger'
+                }
+                cargando={procesandoExtension}
+                onConfirmar={
+                    accionConfirmacion === 'aprobar'
+                        ? aprobarExtension
+                        : rechazarExtension
+                }
+                onCerrar={() => {
+                    if (!procesandoExtension) {
+                        setAccionConfirmacion(null);
+                    }
+                }}
+            />
+        </>
     );
 }
 
