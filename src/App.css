@@ -4462,3 +4462,8 @@ button:disabled {
 .detalle-extension-actions .extension-button-primary {
     min-width: 210px;
 }
+
+/* HU 18 Placeholder visual para selects */
+.gestion-field select.select-placeholder {
+    color: #6b7280;
+}

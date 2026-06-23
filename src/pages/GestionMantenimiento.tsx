@@ -610,8 +610,12 @@ function GestionMantenimiento() {
                                         })
                                     }
                                     disabled={guardandoGasto}
+                                    className={!formGasto.inmueble_id ? 'select-placeholder' : ''}
                                 >
-                                    <option value="">Sin inmueble asociado</option>
+                                    <option value="" disabled hidden>
+                                        Selecciona un inmueble asociado
+                                    </option>
+
                                     {inmueblesFormularioGasto.map((inmueble) => (
                                         <option
                                             key={inmueble.inmueble_id}
