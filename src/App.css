@@ -4449,3 +4449,16 @@ button:disabled {
         width: 100%;
     }
 }
+
+/* HU13 - Separación del botón Solicitar extensión en detalle del inquilino */
+
+.detalle-extension-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 18px;
+    margin-bottom: 28px;
+}
+
+.detalle-extension-actions .extension-button-primary {
+    min-width: 210px;
+}

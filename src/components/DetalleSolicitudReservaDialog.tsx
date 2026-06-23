@@ -417,7 +417,7 @@ const cerrar = () => {
 
                         {/* HU13 - Acciones de extensión */}
                         {puedeSolicitarExtension && (
-                            <div className="extension-dialog-actions">
+                            <div className="detalle-extension-actions">
                                 <button
                                     type="button"
                                     className="extension-button-primary"

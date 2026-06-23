@@ -206,7 +206,7 @@ function VettingInquilinoDialog({
                 <div className="detalle-solicitud-header">
                     <div>
                         <p className="detalle-solicitud-subtitle">
-                            HU11 - Vetting de inquilino
+                            Revision de inquilino
                         </p>
                         <h2>
                             {perfil?.nombres || 'Inquilino'} {perfil?.apellidos || ''}
