@@ -287,7 +287,7 @@ export const cancelarReservaInquilino = async (
 }> => {
     try {
         const response = await apiClient.patch(
-            `/reservas/mis-solicitudes/${reservaId}/cancelar`,
+            `/reservas/${reservaId}/cancelar`,
             {
                 motivo: motivo?.trim() || null
             }
