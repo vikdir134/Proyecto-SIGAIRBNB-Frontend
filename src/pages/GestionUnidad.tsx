@@ -148,7 +148,8 @@ function GestionUnidad() {
     const validarNumeroFormulario = (
         valor: string,
         nombreCampo: string,
-        minimo: number
+        minimo: number,
+        opciones: { entero?: boolean; maximo?: number } = {}
     ) => {
         if (!valor.trim()) {
             return null;
@@ -156,12 +157,20 @@ function GestionUnidad() {
 
         const numero = Number(valor);
 
-        if (Number.isNaN(numero)) {
+        if (!Number.isFinite(numero)) {
             return `${nombreCampo} debe ser un número válido.`;
         }
 
         if (numero < minimo) {
             return `${nombreCampo} no puede ser menor que ${minimo}.`;
+        }
+
+        if (opciones.maximo !== undefined && numero > opciones.maximo) {
+            return `${nombreCampo} no puede ser mayor que ${opciones.maximo}.`;
+        }
+
+        if (opciones.entero && !Number.isInteger(numero)) {
+            return `${nombreCampo} debe ser un número entero.`;
         }
 
         return null;
@@ -220,9 +229,9 @@ function GestionUnidad() {
 
         const erroresNumericos = [
             validarNumeroFormulario(formData.area_m2, 'El área en m²', 0.01),
-            validarNumeroFormulario(formData.num_habitaciones, 'El número de habitaciones', 0),
-            validarNumeroFormulario(formData.num_banos, 'El número de baños', 0),
-            validarNumeroFormulario(formData.capacidad_personas, 'La capacidad de personas', 0),
+            validarNumeroFormulario(formData.num_habitaciones, 'El número de habitaciones', 0, { entero: true, maximo: 100 }),
+            validarNumeroFormulario(formData.num_banos, 'El número de baños', 0, { entero: true, maximo: 100 }),
+            validarNumeroFormulario(formData.capacidad_personas, 'La capacidad de personas', 0, { entero: true, maximo: 1000 }),
             validarNumeroFormulario(formData.renta_base_mensual, 'La renta base mensual', 0)
         ].filter(Boolean);
 
@@ -289,9 +298,9 @@ function GestionUnidad() {
 
         const erroresNumericos = [
             validarNumeroFormulario(formData.area_m2, 'El área en m²', 0.01),
-            validarNumeroFormulario(formData.num_habitaciones, 'El número de habitaciones', 0),
-            validarNumeroFormulario(formData.num_banos, 'El número de baños', 0),
-            validarNumeroFormulario(formData.capacidad_personas, 'La capacidad de personas', 0),
+            validarNumeroFormulario(formData.num_habitaciones, 'El número de habitaciones', 0, { entero: true, maximo: 100 }),
+            validarNumeroFormulario(formData.num_banos, 'El número de baños', 0, { entero: true, maximo: 100 }),
+            validarNumeroFormulario(formData.capacidad_personas, 'La capacidad de personas', 0, { entero: true, maximo: 1000 }),
             validarNumeroFormulario(formData.renta_base_mensual, 'La renta base mensual', 0)
         ].filter(Boolean);
 

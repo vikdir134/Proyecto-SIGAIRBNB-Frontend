@@ -139,6 +139,30 @@ function GestionConceptosCobro() {
             setError('');
             setMensaje('');
 
+            const erroresValidacion = [];
+            const montoDefault = Number(form.monto_default);
+            const ordenImpresion = Number(form.orden_impresion);
+            const aplicaDesdeDias = Number(form.aplica_desde_dias);
+
+            if (!form.nombre.trim()) erroresValidacion.push('El nombre es obligatorio.');
+            if ((form.codigo || '').trim().length > 50) erroresValidacion.push('El código no debe superar los 50 caracteres.');
+            if (form.nombre.trim().length > 120) erroresValidacion.push('El nombre no debe superar los 120 caracteres.');
+            if ((form.descripcion || '').trim().length > 500) erroresValidacion.push('La descripción no debe superar los 500 caracteres.');
+            if (!Number.isFinite(montoDefault) || montoDefault < 0) {
+                erroresValidacion.push('El monto por defecto debe ser un número válido mayor o igual a cero.');
+            }
+            if (!Number.isInteger(ordenImpresion) || ordenImpresion <= 0) {
+                erroresValidacion.push('El orden de impresión debe ser un número entero mayor a cero.');
+            }
+            if (!Number.isInteger(aplicaDesdeDias) || aplicaDesdeDias <= 0) {
+                erroresValidacion.push('Los días de aplicación deben ser un número entero mayor a cero.');
+            }
+
+            if (erroresValidacion.length > 0) {
+                setError(erroresValidacion.join(' '));
+                return;
+            }
+
             if (conceptoEditando) {
                 await actualizarConceptoCobro(conceptoEditando.concepto_cobro_id, form);
                 setMensaje('Concepto actualizado correctamente.');

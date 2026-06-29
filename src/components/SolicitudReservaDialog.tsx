@@ -3,6 +3,7 @@ import {
     solicitarReserva,
     type SolicitudReservaFormData
 } from '../services/reservaService';
+import { todayDateOnly, validateDateRange } from '../utils/dateValidators';
 
 interface PublicacionSolicitudInfo {
     publicacion_id: number;
@@ -59,6 +60,19 @@ function SolicitudReservaDialog({
 
         if (fechaFin <= fechaInicio) {
             setError('La fecha de fin debe ser mayor que la fecha de inicio.');
+            return false;
+        }
+
+        const errorFechas = validateDateRange({
+            start: fechaInicio,
+            end: fechaFin,
+            allowPast: false,
+            maxDays: 730,
+            maxFutureYears: 3
+        });
+
+        if (errorFechas) {
+            setError(errorFechas);
             return false;
         }
 
@@ -127,9 +141,13 @@ const formatearFecha = (fecha?: string | null) => {
 };
 
 const obtenerFechaMinima = () => {
-    if (!publicacion.disponible_desde) return undefined;
+    const hoy = todayDateOnly();
 
-    return publicacion.disponible_desde.slice(0, 10);
+    if (!publicacion.disponible_desde) return hoy;
+
+    const disponibleDesde = publicacion.disponible_desde.slice(0, 10);
+
+    return disponibleDesde > hoy ? disponibleDesde : hoy;
 };
 
     return (

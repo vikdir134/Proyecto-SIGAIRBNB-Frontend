@@ -23,6 +23,7 @@ import {
     type GastoMantenimiento,
     type RegistrarGastoForm
 } from '../services/mantenimientoService';
+import { isDateNotAbsurd } from '../utils/dateValidators';
 
 const obtenerFechaActualInput = () => {
     const ahora = new Date();
@@ -299,8 +300,36 @@ function GestionMantenimiento() {
                 return;
             }
 
-            if (!formGasto.importe || Number(formGasto.importe) <= 0) {
-                setError('El importe debe ser mayor a cero.');
+            const importe = Number(formGasto.importe);
+            const fechaMovimiento = formGasto.fecha_movimiento.slice(0, 10);
+
+            if (!Number.isFinite(importe) || importe <= 0) {
+                setError('El importe debe ser un número válido mayor a cero.');
+                return;
+            }
+
+            if (!isDateNotAbsurd(fechaMovimiento, { minYear: 2000, maxFutureYears: 1 })) {
+                setError('La fecha del movimiento está fuera del rango permitido.');
+                return;
+            }
+
+            if (formGasto.concepto.trim().length > 150) {
+                setError('El concepto no debe superar los 150 caracteres.');
+                return;
+            }
+
+            if ((formGasto.referencia_externa || '').trim().length > 100) {
+                setError('La referencia externa no debe superar los 100 caracteres.');
+                return;
+            }
+
+            if ((formGasto.descripcion || '').trim().length > 500) {
+                setError('La descripción no debe superar los 500 caracteres.');
+                return;
+            }
+
+            if ((formGasto.observaciones || '').trim().length > 500) {
+                setError('Las observaciones no deben superar los 500 caracteres.');
                 return;
             }
 
@@ -311,7 +340,7 @@ function GestionMantenimiento() {
                 inmueble_id: formGasto.inmueble_id
                     ? Number(formGasto.inmueble_id)
                     : null,
-                importe: Number(formGasto.importe)
+                importe
             });
 
             setMensaje('Gasto de mantenimiento registrado correctamente.');

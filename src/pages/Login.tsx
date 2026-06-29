@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from 'react-router-dom';
 import API_URL from '../services/api';
+import { isValidEmail } from '../utils/validators';
 
 function Login() {
     const navigate = useNavigate();
@@ -24,6 +25,14 @@ function Login() {
         e.preventDefault();
 
         setError('');
+
+        const correo = form.correo.trim().toLowerCase();
+
+        if (!isValidEmail(correo)) {
+            setError('Ingresa un correo electrónico válido.');
+            return;
+        }
+
         setCargando(true);
 
         try {
@@ -32,7 +41,10 @@ function Login() {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(form)
+                body: JSON.stringify({
+                    ...form,
+                    correo
+                })
             });
 
             const data = await response.json();

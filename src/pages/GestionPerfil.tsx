@@ -9,6 +9,12 @@ import {
     type PerfilFormData,
     type NotificacionesData
 } from '../services/perfilService';
+import {
+    isValidHttpUrl,
+    isValidPersonName,
+    isValidPhone,
+    onlyDigits
+} from '../utils/validators';
 
 function GestionPerfil() {
     const navigate = useNavigate();
@@ -85,7 +91,9 @@ function GestionPerfil() {
     ) => {
         setForm({
             ...form,
-            [e.target.name]: e.target.value
+            [e.target.name]: e.target.name === 'telefono'
+                ? onlyDigits(e.target.value)
+                : e.target.value
         });
     };
 
@@ -118,6 +126,26 @@ function GestionPerfil() {
         const confirmar = window.confirm('¿Deseas guardar los cambios de tu perfil?');
 
         if (!confirmar) {
+            return;
+        }
+
+        if (!isValidPersonName(form.nombres) || !isValidPersonName(form.apellidos)) {
+            setError('Nombres y apellidos deben contener solo letras y tener entre 2 y 80 caracteres.');
+            return;
+        }
+
+        if (!isValidPhone(form.telefono)) {
+            setError('El teléfono debe contener entre 7 y 15 dígitos y no puede ser un número repetido.');
+            return;
+        }
+
+        if (!isValidHttpUrl(form.foto_url)) {
+            setError('La URL de foto debe iniciar con http:// o https://.');
+            return;
+        }
+
+        if (form.biografia.trim().length > 500) {
+            setError('La biografía no debe superar los 500 caracteres.');
             return;
         }
 

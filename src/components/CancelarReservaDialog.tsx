@@ -18,11 +18,20 @@ function CancelarReservaDialog({
     onCerrar
 }: CancelarReservaDialogProps) {
     const [motivo, setMotivo] = useState('');
+    const [error, setError] = useState('');
 
     if (!abierto) return null;
 
     const confirmar = () => {
-        onConfirmar(motivo.trim());
+        const motivoLimpio = motivo.trim();
+
+        if (motivoLimpio.length > 500) {
+            setError('El motivo no puede superar los 500 caracteres.');
+            return;
+        }
+
+        setError('');
+        onConfirmar(motivoLimpio);
     };
 
     return (
@@ -46,11 +55,17 @@ function CancelarReservaDialog({
                     <textarea
                         id="motivo-cancelacion"
                         value={motivo}
-                        onChange={(e) => setMotivo(e.target.value)}
+                        onChange={(e) => {
+                            setMotivo(e.target.value);
+                            if (error) setError('');
+                        }}
                         placeholder="Ejemplo: Cambio de planes del viaje"
                         disabled={cargando}
+                        maxLength={500}
                         rows={4}
                     />
+                    <small>{motivo.length}/500</small>
+                    {error && <p className="error-message">{error}</p>}
                 </div>
 
                 <div className="cancel-modal-actions">

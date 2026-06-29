@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import API_URL from '../services/api';
+import { isStrongPassword, isValidEmail, isValidPersonName } from '../utils/validators';
 
 function Registro() {
     const navigate = useNavigate();
@@ -31,6 +32,31 @@ function Registro() {
 
         setMensaje('');
         setError('');
+
+        const nombres = form.nombres.trim();
+        const apellidos = form.apellidos.trim();
+        const correo = form.correo.trim().toLowerCase();
+
+        if (!isValidPersonName(nombres) || !isValidPersonName(apellidos)) {
+            setError('Nombres y apellidos deben contener solo letras y tener entre 2 y 80 caracteres.');
+            return;
+        }
+
+        if (!isValidEmail(correo)) {
+            setError('Ingresa un correo electrónico válido.');
+            return;
+        }
+
+        if (!isStrongPassword(form.password)) {
+            setError('La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número.');
+            return;
+        }
+
+        if (!form.acepta_terminos) {
+            setError('Debes aceptar los términos y condiciones.');
+            return;
+        }
+
         setCargando(true);
 
         try {
@@ -39,7 +65,12 @@ function Registro() {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(form)
+                body: JSON.stringify({
+                    ...form,
+                    nombres,
+                    apellidos,
+                    correo
+                })
             });
 
             const data = await response.json();

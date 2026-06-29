@@ -180,22 +180,32 @@ function GestionIngresosAlquiler() {
                 throw new Error('Selecciona un recibo pendiente.');
             }
 
-            if (!formulario.importe || Number(formulario.importe) <= 0) {
-                throw new Error('El importe debe ser mayor a cero.');
+            const importe = Number(formulario.importe);
+
+            if (!Number.isFinite(importe) || importe <= 0) {
+                throw new Error('El importe debe ser un número válido mayor a cero.');
             }
 
             if (
                 reciboSeleccionado &&
-                Number(formulario.importe) > Number(reciboSeleccionado.saldo_pendiente)
+                importe > Number(reciboSeleccionado.saldo_pendiente)
             ) {
                 throw new Error('El importe no puede superar el saldo pendiente del recibo.');
+            }
+
+            if (formulario.referencia_externa.trim().length > 100) {
+                throw new Error('La referencia externa no debe superar los 100 caracteres.');
+            }
+
+            if (formulario.observaciones.trim().length > 500) {
+                throw new Error('Las observaciones no deben superar los 500 caracteres.');
             }
 
             const payload: RegistrarIngresoPayload = {
                 cuenta_bancaria_id: Number(formulario.cuenta_bancaria_id),
                 categoria_movimiento_id: Number(formulario.categoria_movimiento_id),
                 recibo_id: Number(formulario.recibo_id),
-                importe: Number(formulario.importe),
+                importe,
                 metodo_pago: formulario.metodo_pago as RegistrarIngresoPayload['metodo_pago'],
                 referencia_externa: formulario.referencia_externa.trim() || undefined,
                 observaciones: formulario.observaciones.trim() || undefined

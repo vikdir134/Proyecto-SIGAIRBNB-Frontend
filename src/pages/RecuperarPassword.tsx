@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import API_URL from '../services/api';
+import { isValidEmail } from '../utils/validators';
 
 function RecuperarPassword() {
     const [correo, setCorreo] = useState('');
@@ -13,6 +14,14 @@ function RecuperarPassword() {
 
         setMensaje('');
         setError('');
+
+        const correoNormalizado = correo.trim().toLowerCase();
+
+        if (!isValidEmail(correoNormalizado)) {
+            setError('Ingresa un correo electrónico válido.');
+            return;
+        }
+
         setCargando(true);
 
         try {
@@ -21,7 +30,7 @@ function RecuperarPassword() {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ correo })
+                body: JSON.stringify({ correo: correoNormalizado })
             });
 
             const data = await response.json();

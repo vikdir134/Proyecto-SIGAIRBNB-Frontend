@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import API_URL from '../services/api';
+import { isStrongPassword } from '../utils/validators';
 
 function RestablecerPassword() {
     const navigate = useNavigate();
@@ -27,6 +28,11 @@ function RestablecerPassword() {
 
         if (password.length < 6) {
             setError('La contraseña debe tener como mínimo 6 caracteres');
+            return;
+        }
+
+        if (!isStrongPassword(password)) {
+            setError('La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número.');
             return;
         }
 

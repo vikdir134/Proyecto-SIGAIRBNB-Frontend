@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import SidebarGestion from '../components/SidebarGestion';
+import { validateDateRange } from '../utils/dateValidators';
 
 import {
     listarInmueblesDisponibilidad,
@@ -216,6 +217,20 @@ function GestionDisponibilidad() {
                 return;
             }
 
+            const errorFechas = validateDateRange({
+                start: form.fecha_inicio,
+                end: form.fecha_fin,
+                allowSameDay: true,
+                allowPast: false,
+                maxDays: 370,
+                maxFutureYears: 3
+            });
+
+            if (errorFechas) {
+                setError(errorFechas);
+                return;
+            }
+
             await crearBloqueoDisponibilidad({
                 ...form,
                 inmueble_id: Number(inmuebleSeleccionado)
@@ -310,6 +325,20 @@ const guardarEdicionBloqueo = async (e: React.FormEvent<HTMLFormElement>) => {
 
         if (formEdicion.fecha_fin < formEdicion.fecha_inicio) {
             setError('La fecha de fin no puede ser menor que la fecha de inicio');
+            return;
+        }
+
+        const errorFechas = validateDateRange({
+            start: formEdicion.fecha_inicio,
+            end: formEdicion.fecha_fin,
+            allowSameDay: true,
+            allowPast: false,
+            maxDays: 370,
+            maxFutureYears: 3
+        });
+
+        if (errorFechas) {
+            setError(errorFechas);
             return;
         }
 

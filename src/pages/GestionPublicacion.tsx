@@ -12,6 +12,8 @@ import {
     type InmueblePublicable,
     type PublicacionFormData
 } from '../services/publicacionService';
+import { isDateNotAbsurd, todayDateOnly } from '../utils/dateValidators';
+import { isValidImageFile } from '../utils/validators';
 
 type AccionConfirmacion =
     | 'publicarNuevo'
@@ -110,6 +112,13 @@ function GestionPublicacion() {
             return;
         }
 
+        if (!isValidImageFile(archivo)) {
+            setError('La foto debe ser JPG, PNG o WEBP y no superar 5 MB.');
+            setFotoSeleccionada(null);
+            setPreviewFoto('');
+            return;
+        }
+
         setFotoSeleccionada(archivo);
         setPreviewFoto(URL.createObjectURL(archivo));
     };
@@ -157,6 +166,28 @@ function GestionPublicacion() {
         ) {
             setError('El precio mensual debe ser mayor a 0.');
             return false;
+        }
+
+        if (form.titulo.trim().length > 200) {
+            setError('El título no puede superar los 200 caracteres.');
+            return false;
+        }
+
+        if (form.descripcion_corta.trim().length > 500) {
+            setError('La descripción corta no puede superar los 500 caracteres.');
+            return false;
+        }
+
+        if (form.disponible_desde) {
+            if (!isDateNotAbsurd(form.disponible_desde, { maxFutureYears: 3 })) {
+                setError('La fecha de disponibilidad está fuera del rango permitido.');
+                return false;
+            }
+
+            if (form.disponible_desde < todayDateOnly()) {
+                setError('La fecha de disponibilidad no puede ser una fecha pasada.');
+                return false;
+            }
         }
 
         if (!fotoSeleccionada) {

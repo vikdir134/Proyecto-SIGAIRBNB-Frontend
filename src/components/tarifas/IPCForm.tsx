@@ -29,8 +29,20 @@ function IPCForm({ cargando, onRegistrar }: IPCFormProps) {
       return;
     }
 
+    const anioMaximo = new Date().getFullYear() + 1;
+
+    if (anioNumero < 2000 || anioNumero > anioMaximo) {
+      alert(`El año debe estar entre 2000 y ${anioMaximo}.`);
+      return;
+    }
+
     if (porcentajeNumero < 0) {
       alert('El porcentaje anual no puede ser negativo.');
+      return;
+    }
+
+    if (porcentajeNumero > 100) {
+      alert('El porcentaje anual no puede superar 100%.');
       return;
     }
 
