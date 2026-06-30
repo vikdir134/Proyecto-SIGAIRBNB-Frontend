@@ -26,6 +26,7 @@ import GestionConceptosCobro from './pages/GestionConceptosCobro';
 import MisPagos from './pages/MisPagos';
 import GestionIngresosAlquiler from './pages/GestionIngresosAlquiler';
 import GestionTarifas from './pages/GestionTarifas';
+import GestionReportes from './pages/GestionReportes';
 
 function App() {
   return (
@@ -125,6 +126,7 @@ function App() {
         />
         <Route path="/Mispagos" element={<MisPagos />} />
         <Route path="/GestionTarifas" element={<GestionTarifas />} />
+        <Route path="/GestionReportes" element={<GestionReportes />} />
       </Routes>
     </BrowserRouter>
   );

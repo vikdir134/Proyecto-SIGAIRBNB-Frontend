@@ -27,7 +27,10 @@ function SidebarGestion() {
 
             setEsCliente(roles.includes('CLIENTE'));
             setEsSecretario(roles.includes('SECRETARIO'));
-            setEsAdmin(roles.includes('ADMIN'));
+            setEsAdmin(
+                roles.includes('ADMIN') ||
+                roles.includes('ADMIN_EMPRESA')
+            );
         } catch (error) {
             console.error('No se pudo leer el usuario del localStorage:', error);
         }
@@ -80,18 +83,18 @@ function SidebarGestion() {
     }, []);
 
     useEffect(() => {
-    document.body.classList.add('gestion-con-sidebar');
+        document.body.classList.add('gestion-con-sidebar');
 
-    document.documentElement.style.setProperty(
-        '--sidebar-current-width',
-        sidebarContraido ? '88px' : '270px'
-    );
+        document.documentElement.style.setProperty(
+            '--sidebar-current-width',
+            sidebarContraido ? '88px' : '270px'
+        );
 
-    return () => {
-        document.body.classList.remove('gestion-con-sidebar');
-        document.documentElement.style.removeProperty('--sidebar-current-width');
-    };
-}, [sidebarContraido]);
+        return () => {
+            document.body.classList.remove('gestion-con-sidebar');
+            document.documentElement.style.removeProperty('--sidebar-current-width');
+        };
+    }, [sidebarContraido]);
 
     return (
         <aside className={`gestion-sidebar ${sidebarContraido ? 'sidebar-collapsed' : ''}`}>
@@ -197,6 +200,11 @@ function SidebarGestion() {
                                 <span className="sidebar-link-text">Tarifas / IPC</span>
                             </NavLink>
 
+                            <NavLink to="/GestionReportes" title="Reportes financieros">
+                                <span className="sidebar-link-icon">R</span>
+                                <span className="sidebar-link-text">Reportes financieros</span>
+                            </NavLink>
+
                             <NavLink to="/GestionAdmin" title="Mantenimiento Admin">
                                 <span className="sidebar-link-icon">A</span>
                                 <span className="sidebar-link-text">Mantenimiento Admin</span>
@@ -224,6 +232,11 @@ function SidebarGestion() {
                             <NavLink to="/GestionTarifas" title="Tarifas / IPC">
                                 <span className="sidebar-link-icon">T</span>
                                 <span className="sidebar-link-text">Tarifas / IPC</span>
+                            </NavLink>
+
+                            <NavLink to="/GestionReportes" title="Reportes financieros">
+                                <span className="sidebar-link-icon">R</span>
+                                <span className="sidebar-link-text">Reportes financieros</span>
                             </NavLink>
                         </>
                     )}
