@@ -150,10 +150,7 @@ function SidebarGestion() {
 
                     {esAdmin && (
                         <>
-                            <NavLink to="/GestionHome" title="Dashboard">
-                                <span className="sidebar-link-icon">D</span>
-                                <span className="sidebar-link-text">Dashboard</span>
-                            </NavLink>
+                          
 
                             <NavLink to="/GestionEdificio" title="Registrar Edificio">
                                 <span className="sidebar-link-icon">E</span>

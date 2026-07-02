@@ -1,6 +1,7 @@
 import apiClient from './apiClient';
 
 import type {
+  DashboardKpisResponse,
   ReporteFinancieroMensualFiltros,
   ReporteResumenResponse,
   ReporteDetalleResponse
@@ -58,6 +59,21 @@ export const obtenerDetalleMovimientosMensuales = async (
 
   const response = await apiClient.get<ReporteDetalleResponse>(
     '/reportes/financiero-mensual/detalle',
+    {
+      params: filtrosValidados
+    }
+  );
+
+  return response.data.data;
+};
+
+export const obtenerDashboardKpis = async (
+  filtros: ReporteFinancieroMensualFiltros
+) => {
+  const filtrosValidados = validarFiltros(filtros);
+
+  const response = await apiClient.get<DashboardKpisResponse>(
+    '/reportes/dashboard-kpis',
     {
       params: filtrosValidados
     }

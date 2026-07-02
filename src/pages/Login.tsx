@@ -64,7 +64,7 @@ function Login() {
                 : [];
 
             if (roles.includes('ADMIN')) {
-                navigate('/GestionHome');
+                navigate('/GestionReportes');
                 return;
             }
 

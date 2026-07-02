@@ -197,7 +197,7 @@ function PublicHeader({
 
                                             navigate(
                                                 esAdmin
-                                                    ? '/GestionHome'
+                                                    ? '/GestionReportes'
                                                     : '/GestionSolicitudesReserva'
                                             );
                                         }}

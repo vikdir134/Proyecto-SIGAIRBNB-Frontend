@@ -8,7 +8,7 @@ import Registro from './pages/Registro';
 import VerificarEmail from './pages/VerificarEmail';
 import RecuperarPassword from './pages/RecuperarPassword';
 
-import GestionHome from './pages/GestionHome';
+
 import GestionPerfil from './pages/GestionPerfil';
 import GestionEdificio from './pages/GestionEdificio';
 import GestionUnidad from './pages/GestionUnidad';
@@ -47,14 +47,7 @@ function App() {
                 </RutaGestionReservas>
             }
         />
-        <Route
-            path="/GestionHome"
-            element={
-                <RutaAdmin>
-                    <GestionHome />
-                </RutaAdmin>
-            }
-        />
+      
         <Route path='/GestionPerfil' element={<GestionPerfil />} />
         <Route
             path="/GestionEdificio"
